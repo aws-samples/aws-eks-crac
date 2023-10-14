@@ -1,0 +1,30 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - echo Build started on `date`
+      - export IMAGE_REPO_NAME=${SRVC_NAME}
+      - docker build -t $SRVC_NAME:v$CODEBUILD_BUILD_NUMBER .
+      - ASSUME_ROLE_ARN="${ROLE_ARN}"
+      - TEMP_ROLE=$(aws sts assume-role --role-arn $ASSUME_ROLE_ARN --role-session-name test)
+      - export TEMP_ROLE
+      - export AWS_ACCESS_KEY_ID=$(echo "${TEMP_ROLE}" | jq -r '.Credentials.AccessKeyId')
+      - export AWS_SECRET_ACCESS_KEY=$(echo "${TEMP_ROLE}" | jq -r '.Credentials.SecretAccessKey')
+      - export AWS_SESSION_TOKEN=$(echo "${TEMP_ROLE}" | jq -r '.Credentials.SessionToken')
+      - docker run --detach --privileged --env AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --env AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --env AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN --env SRVC_JAR_FILE_NAME=$SRVC_JAR_FILE_NAME --rm --name $SRVC_NAME $SRVC_NAME:v$CODEBUILD_BUILD_NUMBER /opt/scripts/checkpoint.sh
+      - docker exec -u root $SRVC_NAME /opt/scripts/checkpoint-wait.sh
+      - docker commit $SRVC_NAME $SRVC_NAME:v$CODEBUILD_BUILD_NUMBER-checkpoint
+      - docker tag $SRVC_NAME:v$CODEBUILD_BUILD_NUMBER $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:v$CODEBUILD_BUILD_NUMBER
+      - docker tag $SRVC_NAME:v$CODEBUILD_BUILD_NUMBER-checkpoint $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:v$CODEBUILD_BUILD_NUMBER-checkpoint   
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:v$CODEBUILD_BUILD_NUMBER
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:v$CODEBUILD_BUILD_NUMBER-checkpoint

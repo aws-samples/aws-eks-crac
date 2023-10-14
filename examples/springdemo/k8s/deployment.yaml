@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-boot-ddb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-boot-ddb
+  template:
+    metadata:
+      labels:
+        app: spring-boot-ddb
+    spec:
+      serviceAccountName: spring-boot-ddb
+      containers:
+      - name: spring-boot-ddb
+        image: 656220021423.dkr.ecr.eu-west-1.amazonaws.com/springdemo:v1-checkpoint
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+              - CHECKPOINT_RESTORE
+              - SYS_PTRACE
+          privileged: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+        command: ["/bin/bash"]
+        args: ["/opt/scripts/run-service.sh"]

@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Infrastructure stack
+Parameters:
+  ServiceName:
+    Type: String
+    Description: Enter the service name.
+
+Resources:
+  CustomerTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - AttributeName: "Id"
+          AttributeType: "S"
+      KeySchema: 
+        - AttributeName: "Id"
+          KeyType: "HASH"
+      ProvisionedThroughput: 
+        ReadCapacityUnits: "50"
+        WriteCapacityUnits: "50"
+      TableName: "Customer"
+

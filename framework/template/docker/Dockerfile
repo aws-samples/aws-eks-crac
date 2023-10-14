@@ -1,0 +1,20 @@
+FROM azul/zulu-openjdk:17-jdk-crac as builder
+
+COPY ./pom.xml ./pom.xml
+COPY src ./src/
+
+ENV MAVEN_OPTS='-Xmx6g'
+
+RUN apt-get update --fix-missing \
+    && apt-get install zip curl -y \
+    && curl -s "https://get.sdkman.io" | bash \
+    && bash -c "source $HOME/.sdkman/bin/sdkman-init.sh; \
+    sdk install maven; mvn -Dmaven.test.skip=true clean package"
+
+FROM azul/zulu-openjdk:17-jdk-crac
+
+RUN chown root:root $JAVA_HOME/lib/criu \
+    && chmod 777 $JAVA_HOME/lib/criu
+    
+COPY scripts/* /opt/scripts/
+COPY --from=builder target/${SRVC_JAR_FILE_NAME} ${SRVC_JAR_FILE_NAME}

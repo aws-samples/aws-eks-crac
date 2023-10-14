@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Staging infrastructure template
+Parameters:
+  CfnS3Bucket:
+    Type: String
+    Description: Enter the name of the S3 buckets that contains the CloudFormation templates
+  ServiceName:
+    Type: String
+    Description: Enter the service name.
+  ServiceJarFilename:
+    Type: String
+    Description: Enter the service JAR filename.
+
+Resources:
+  CiRole:
+    Type: AWS::IAM::Role
+    DependsOn: CiStack
+    Properties:
+      RoleName: !Sub "${ServiceName}-CiRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/${ServiceName}-CiCodeBuildRole" 
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ServiceName}-CiRolePolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: #Add needed actions
+                Resource: #Reference service infrastructur resources accessed as part of CI pipeline 
+                
+  CiStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: !Sub "https://${CfnS3Bucket}.s3.${AWS::Region}.amazonaws.com/ci.yaml"
+      Parameters:
+        ServiceName: !Sub "${ServiceName}"
+        ServiceJarFilename: !Sub "${ServiceJarFilename}"

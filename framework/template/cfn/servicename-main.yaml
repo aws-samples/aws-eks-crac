@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploys springdemo infrastructure dependencies and CI pipeline
+Parameters:
+  CfnS3Bucket:
+    Type: String
+    Description: Enter the name of the S3 buckets that contains the CloudFormation templates
+  ServiceName:
+    Type: String
+    Description: Enter the service name
+  ServiceJarFilename:
+    Type: String
+    Description: Enter the service JAR filename
+
+Resources:
+  CiStack:
+    Type: 'AWS::CloudFormation::Stack'
+    DeletionPolicy: Retain
+    Properties:
+      TemplateURL: !Sub "https://${CfnS3Bucket}.s3.${AWS::Region}.amazonaws.com/${ServiceName}-ci.template"
+      Parameters:
+        ServiceName: !Sub "${ServiceName}"
+        CfnS3Bucket: !Sub "${CfnS3Bucket}"
+        ServiceJarFilename: !Sub "${ServiceJarFilename}"
+  InfraStack:
+    Type: 'AWS::CloudFormation::Stack'
+    DeletionPolicy: Retain
+    Properties:
+      TemplateURL: !Sub "https://${CfnS3Bucket}.s3.${AWS::Region}.amazonaws.com/${ServiceName}-infra.template"
+      Parameters:
+        ServiceName: !Sub "${ServiceName}"
