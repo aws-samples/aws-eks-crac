@@ -15,6 +15,7 @@
 
 package com.amazon.customerService.repository;
 
+import java.net.URI;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -44,6 +45,9 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+
 
 @Slf4j
 @Repository
@@ -57,7 +61,7 @@ public class CustomerRepository implements Resource {
     public static final String REGISTRATION_DATE_COLUMN = "RegistrationDate";
 
     DynamoDbClient client;
-
+    
     private final SimpleDateFormat sdf;
 
     public CustomerRepository() {
@@ -182,41 +186,46 @@ public class CustomerRepository implements Resource {
     }
     
     public DynamoDbClient createDynamoDbClient() {
-    	String mode = System.getProperty("mode");
-    	if ( mode!= null && "ci".equals(mode)) {
+        String mode = System.getProperty("mode");
+        log.debug("Current deployment mode: %s".formatted(mode));
+        String amazonDynamoDBEndpoint = System.getProperty("amazon.dynamodb.endpoint");
+
+    	if ("ci".equals(mode)) {
+            log.debug("Running in CI mode, will use env credentials provider.");
         	return DynamoDbClient.builder()
+                    .endpointOverride(URI.create(amazonDynamoDBEndpoint))
         			.credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-        			.region(Region.EU_WEST_1)
                     .build();    		
     	}
-    	
+
+        log.debug("Running in cluster, will fetch credentials from WebIdentityTokenFileCredentialsProvider");
     	return DynamoDbClient.builder()
+        .endpointOverride(URI.create(amazonDynamoDBEndpoint))
 		.credentialsProvider(WebIdentityTokenFileCredentialsProvider.create())
-		.region(Region.EU_WEST_1)
         .build();
     }
 
    @Override
    public void beforeCheckpoint(Context<? extends Resource> context) throws Exception {
-       System.out.println("Executing beforeCheckpoint...");
+       log.debug("Executing beforeCheckpoint...");
        client.close();
    }
    
    @Override
    public void afterRestore(Context<? extends Resource> context) throws Exception {
-	   System.out.println("Executing afterCheckpoint...");
+       log.debug("Executing afterCheckpoint...");
 
 	   SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");//dd/MM/yyyy
 
 	   Date now = new Date();
 	   String strDate = sdfDate.format(now);
-	   System.out.println("Time after restore and before re-creating the client:" + strDate);
+       log.debug("Time after restore and before re-creating the client:" + strDate);
 
 	   client = createDynamoDbClient();
 	   
 	   now = new Date();
 	   strDate = sdfDate.format(now);
-	   System.out.println("Time after re-creating the client:" + strDate);
+       log.debug("Time after re-creating the client:" + strDate);
        
    }
 }

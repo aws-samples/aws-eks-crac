@@ -115,8 +115,8 @@ git push
 cd ~/environment/
 export SRVC_IMAGE_WO_CRAC=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$SRVC_NAME:v1 #refers to the container image produced by the CI pipeline
 export SRVC_IMAGE=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$SRVC_NAME:v1-checkpoint #refers to the container image produced by the CI pipeline
-yq -i '.spec.template.spec.containers[1].image = env(SRVC_IMAGE_WO_CRAC)' aws-eks-crac/examples/springdemo/k8s/deployment-wo-crac.yaml
-yq -i '.spec.template.spec.containers[1].image = env(SRVC_IMAGE' aws-eks-crac/examples/springdemo/k8s/deployment.yaml
+sed -i "s|SRVC_IMAGE_WO_CRAC|$SRVC_IMAGE_WO_CRAC|" aws-eks-crac/examples/springdemo/k8s/deployment-wo-crac.yaml
+sed -i "s|SRVC_IMAGE|$SRVC_IMAGE|" aws-eks-crac/examples/springdemo/k8s/deployment.yaml
 kubectl apply -f aws-eks-crac/examples/springdemo/k8s
 ```
 

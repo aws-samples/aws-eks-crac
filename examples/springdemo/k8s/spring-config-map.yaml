@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spring-demo-config
+data:
+  amazon.dynamodb.endpoint: "https://dynamodb.eu-west-2.amazonaws.com"
+  mode: "prod"

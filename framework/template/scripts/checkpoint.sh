@@ -5,7 +5,7 @@ apt-get --assume-yes install siege -y
 # start the application
 echo Starting the application...
 ( echo 128 > /proc/sys/kernel/ns_last_pid ) 2>/dev/null || while [ $(cat /proc/sys/kernel/ns_last_pid) -lt 128 ]; do :; done;
-nohup java -Dspring.profiles.active=prod -Dmode=ci -XX:CRaCCheckpointTo=/opt/crac-files -jar /${SRVC_JAR_FILE_NAME} &
+nohup java -Dspring.profiles.active=prod -Dmode=${MODE} -Damazon.dynamodb.endpoint=${AMAZON_DYNAMO_DB_ENDPOINT} -XX:CRaCCheckpointTo=/opt/crac-files -jar /${SRVC_JAR_FILE_NAME} &
 
 # ensure the application started successfully
 echo Confirming the application started successfully...

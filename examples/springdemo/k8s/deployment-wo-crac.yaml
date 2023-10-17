@@ -15,7 +15,7 @@ spec:
       serviceAccountName: spring-boot-ddb
       containers:
       - name: spring-boot-ddb-wo-crac
-        image: 656220021423.dkr.ecr.eu-west-1.amazonaws.com/springdemo:v1
+        image: SRVC_IMAGE_WO_CRAC
         ports:
         - containerPort: 8080
           name: http
@@ -25,5 +25,13 @@ spec:
         env:
         - name: SRVC_JAR_FILE_NAME
           value: CustomerService-0.0.1.jar
-
-        
+        - name: MODE
+          valueFrom:
+            configMapKeyRef:
+              name: spring-demo-config
+              key: mode
+        - name: AMAZON_DYNAMO_DB_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: spring-demo-config
+              key: amazon.dynamodb.endpoint
