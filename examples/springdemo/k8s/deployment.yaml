@@ -41,6 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         command: ["/bin/bash"]
         args: ["/opt/scripts/run-service.sh"]
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          failureThreshold: 60
 ---
 apiVersion: v1
 kind: Service

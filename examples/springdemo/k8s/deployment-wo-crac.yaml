@@ -35,6 +35,13 @@ spec:
             configMapKeyRef:
               name: spring-demo-config
               key: amazon.dynamodb.endpoint
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          failureThreshold: 60
 ---
 apiVersion: v1
 kind: Service
