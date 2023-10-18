@@ -35,3 +35,36 @@ spec:
             configMapKeyRef:
               name: spring-demo-config
               key: amazon.dynamodb.endpoint
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-boot-ddb-wo-crac-service
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+  type: NodePort
+  selector:
+    app: spring-boot-ddb-wo-crac
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-boot-ddb-wo-crac-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: spring-boot-ddb-wo-crac-service
+              port:
+                number: 8080              

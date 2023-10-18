@@ -4,8 +4,11 @@ CDK must be bootstrapped prior to deploying stacks. Bootstrapping is a process o
 Once CDK is bootstrapped, the cluster is deployed an updated with the following command:
 * `cdk deploy eks-java-checkpoint-restore`
 
+Once CDK has completed the deployment, CDK outputs the commands to update your kubeconfig in order to access the cluster. Take note of the cluster role.
+
 This cluster is configured with Karpenter as the node provisioner. After the 1st creation of the cluster, the Karpenter Add-on is setup and the provisioner must be created. This is done with the following
 * `kubectl apply -f post-cluster/karpenter-provisioner.yaml`
+
 
 Please check these links for more details about EKS Blueprints
 * https://aws-quickstart.github.io/cdk-eks-blueprints/getting-started/

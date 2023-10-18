@@ -113,8 +113,8 @@ git push
 
 ```
 cd ~/environment/
-export SRVC_IMAGE_WO_CRAC=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$SRVC_NAME:v1 #refers to the container image produced by the CI pipeline
-export SRVC_IMAGE=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$SRVC_NAME:v1-checkpoint #refers to the container image produced by the CI pipeline
+export SRVC_IMAGE_WO_CRAC=$(aws ecr describe-repositories --repository-name springdemo --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]') # the order of build commands means the second last image is always the base
+export SRVC_IMAGE=$(aws ecr describe-repositories --repository-name springdemo --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]') # the order of build commands means the latest image is always the checkpoint
 sed -i "s|SRVC_IMAGE_WO_CRAC|$SRVC_IMAGE_WO_CRAC|" aws-eks-crac/examples/springdemo/k8s/deployment-wo-crac.yaml
 sed -i "s|SRVC_IMAGE|$SRVC_IMAGE|" aws-eks-crac/examples/springdemo/k8s/deployment.yaml
 kubectl apply -f aws-eks-crac/examples/springdemo/k8s

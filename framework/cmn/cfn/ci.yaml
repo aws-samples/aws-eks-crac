@@ -220,7 +220,7 @@ Resources:
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                BranchName: 'master'
+                BranchName: 'main'
                 RepositoryName: !Ref ServiceName
                 PollForSourceChanges: false
               RunOrder: 1
