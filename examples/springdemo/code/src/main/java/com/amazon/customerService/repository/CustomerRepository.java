@@ -15,43 +15,22 @@
 
 package com.amazon.customerService.repository;
 
-import java.net.URI;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import org.crac.Context;
-import org.crac.Core;
-import org.crac.Resource;
-import org.springframework.stereotype.Repository;
-
 import com.amazon.customerService.model.Customer;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Autowired;
+import software.amazon.awssdk.services.dynamodb.model.*;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Slf4j
 @Repository
-public class CustomerRepository implements Resource {
+public class CustomerRepository {
 
     public static final String TABLE_NAME = "Customer";
     public static final String ID_COLUMN = "Id";
@@ -59,17 +38,13 @@ public class CustomerRepository implements Resource {
     public static final String EMAIL_COLUMN = "Email";
     public static final String ACCOUNT_NUMBER_COLUMN = "AccountNumber";
     public static final String REGISTRATION_DATE_COLUMN = "RegistrationDate";
-
-    DynamoDbClient client;
-    
     private final SimpleDateFormat sdf;
+    DynamoDbClient client;
 
     public CustomerRepository() {
-    	this.client = createDynamoDbClient();
+        this.client = createDynamoDbClient();
 
         sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-        
-        Core.getGlobalContext().register(this);
     }
 
     public Customer save(final Customer customer) {
@@ -184,48 +159,27 @@ public class CustomerRepository implements Resource {
 
         return customer;
     }
-    
-    public DynamoDbClient createDynamoDbClient() {
-        String mode = System.getProperty("mode");
-        log.debug("Current deployment mode: %s".formatted(mode));
-        String amazonDynamoDBEndpoint = System.getProperty("amazon.dynamodb.endpoint");
 
-    	if ("ci".equals(mode)) {
-            log.debug("Running in CI mode, will use env credentials provider.");
-        	return DynamoDbClient.builder()
-                    .endpointOverride(URI.create(amazonDynamoDBEndpoint))
-        			.credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-                    .build();    		
-    	}
-
-        log.debug("Running in cluster, will fetch credentials from WebIdentityTokenFileCredentialsProvider");
-    	return DynamoDbClient.builder()
-        .endpointOverride(URI.create(amazonDynamoDBEndpoint))
-		.credentialsProvider(WebIdentityTokenFileCredentialsProvider.create())
-        .build();
+    public void closeClient() {
+        client.close();
     }
 
-   @Override
-   public void beforeCheckpoint(Context<? extends Resource> context) throws Exception {
-       log.debug("Executing beforeCheckpoint...");
-       client.close();
-   }
-   
-   @Override
-   public void afterRestore(Context<? extends Resource> context) throws Exception {
-       log.debug("Executing afterCheckpoint...");
+    public void createClient() {
+        client = createDynamoDbClient();
+    }
 
-	   SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");//dd/MM/yyyy
+    public DynamoDbClient createDynamoDbClient() {
+        String mode = System.getProperty("mode");
+        if ("ci".equals(mode)) {
+            return DynamoDbClient.builder()
+                    .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
+                    .region(Region.EU_WEST_1)
+                    .build();
+        }
 
-	   Date now = new Date();
-	   String strDate = sdfDate.format(now);
-       log.debug("Time after restore and before re-creating the client:" + strDate);
-
-	   client = createDynamoDbClient();
-	   
-	   now = new Date();
-	   strDate = sdfDate.format(now);
-       log.debug("Time after re-creating the client:" + strDate);
-       
-   }
+        return DynamoDbClient.builder()
+                .credentialsProvider(WebIdentityTokenFileCredentialsProvider.create())
+                .region(Region.EU_WEST_1)
+                .build();
+    }
 }

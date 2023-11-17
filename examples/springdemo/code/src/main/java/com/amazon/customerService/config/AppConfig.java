@@ -29,6 +29,29 @@ import java.net.URI;
 @Configuration
 public class AppConfig {
 
-    public final static Integer APPLICATION_VERSION = 1;
+    public final static Integer APPLICATION_VERSION = 2;
 
+    @Value("${amazon.dynamodb.endpoint}")
+    private String amazonDynamoDBEndpoint;
+
+    @Bean
+    public DynamoDbClient getDynamoDbClient() {
+        AwsCredentialsProvider credentialsProvider =
+                DefaultCredentialsProvider.builder()
+                        .profileName("default")
+                        .build();
+
+        return DynamoDbClient.builder()
+                .region(Region.EU_WEST_1)
+                .credentialsProvider(credentialsProvider)
+                .endpointOverride(URI.create(amazonDynamoDBEndpoint))
+                .build();
+    }
+
+    @Bean
+    public DynamoDbEnhancedClient getDynamoDbEnhancedClient() {
+        return DynamoDbEnhancedClient.builder()
+                .dynamoDbClient(getDynamoDbClient())
+                .build();
+    }
 }
