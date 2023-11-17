@@ -15,57 +15,19 @@
 
 package com.amazon.customerService;
 
-import com.amazon.customerService.config.AppConfig;
-import com.amazon.customerService.model.metrics.MetricWrapper;
-import com.amazon.customerService.service.EcsMetaDataService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.amazon.customerService.service.TimingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-
-import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
-import java.time.Duration;
-import java.time.Instant;
 
 @Slf4j
 @SpringBootApplication
 public class CustomerServiceApplication {
 
-    private static Instant startTime;
-    private static Instant endTime;
-
     public static void main(String[] args) {
-        RuntimeMXBean bean = ManagementFactory.getRuntimeMXBean();
-        startTime = Instant.ofEpochMilli(bean.getStartTime());
         SpringApplication.run(CustomerServiceApplication.class, args);
-        Duration springBootStartTime = Duration.between(startTime, endTime);
-
-        EcsMetaDataService ecsMetaDataService = new EcsMetaDataService();
-        MetricWrapper metricWrapper = ecsMetaDataService.getMetaData();
-
-        if (metricWrapper != null) {
-            metricWrapper.setVersion(AppConfig.APPLICATION_VERSION);
-            metricWrapper.setSpringBootStartDuration(springBootStartTime);
-            metricWrapper.setSpringBootReadyTime(endTime);
-            ObjectMapper mapper = new ObjectMapper()
-                    .registerModule(new JavaTimeModule());
-
-            try {
-                String metricsJson = mapper.writeValueAsString(metricWrapper);
-                log.info("Metrics: " + metricsJson);
-            } catch (JsonProcessingException e) {
-                log.error(e.getMessage());
-            }
-        }
+        TimingService.measureTime();
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void startApp() {
-        endTime = Instant.now();
-    }
+
 }

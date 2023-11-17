@@ -22,6 +22,7 @@ public class MetricWrapper {
 
     private ContainerMetric containerMetric;
     private TaskMetric taskMetric;
+    private PodMetric podMetric;
     private Duration springBootStartDuration;
     private Instant springBootReadyTime;
     private Integer version;
@@ -29,12 +30,13 @@ public class MetricWrapper {
     public MetricWrapper() {
     }
 
-    public MetricWrapper(ContainerMetric containerMetric, TaskMetric taskMetric, Duration springBootStartTime, Instant springBootReadyTime, Integer version) {
+    public MetricWrapper(ContainerMetric containerMetric, TaskMetric taskMetric, PodMetric podMetric, Duration springBootStartTime, Instant springBootReadyTime, Integer version) {
         this.containerMetric = containerMetric;
         this.taskMetric = taskMetric;
         this.springBootStartDuration = springBootStartTime;
         this.springBootReadyTime = springBootReadyTime;
         this.version = version;
+        this.podMetric = podMetric;
     }
 
     public Integer getVersion() {
@@ -75,5 +77,13 @@ public class MetricWrapper {
 
     public void setSpringBootStartDuration(Duration springBootStartDuration) {
         this.springBootStartDuration = springBootStartDuration;
+    }
+
+    public PodMetric getPodMetric() {
+        return podMetric;
+    }
+
+    public void setPodMetric(PodMetric podMetric) {
+        this.podMetric = podMetric;
     }
 }
