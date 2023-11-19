@@ -16,15 +16,7 @@
 package com.amazon.customerService.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-
-import java.net.URI;
 
 @Configuration
 public class AppConfig {
@@ -34,24 +26,4 @@ public class AppConfig {
     @Value("${amazon.dynamodb.endpoint}")
     private String amazonDynamoDBEndpoint;
 
-    @Bean
-    public DynamoDbClient getDynamoDbClient() {
-        AwsCredentialsProvider credentialsProvider =
-                DefaultCredentialsProvider.builder()
-                        .profileName("default")
-                        .build();
-
-        return DynamoDbClient.builder()
-                .region(Region.EU_WEST_1)
-                .credentialsProvider(credentialsProvider)
-                .endpointOverride(URI.create(amazonDynamoDBEndpoint))
-                .build();
-    }
-
-    @Bean
-    public DynamoDbEnhancedClient getDynamoDbEnhancedClient() {
-        return DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(getDynamoDbClient())
-                .build();
-    }
 }

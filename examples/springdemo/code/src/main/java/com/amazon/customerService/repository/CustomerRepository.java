@@ -15,18 +15,36 @@
 
 package com.amazon.customerService.repository;
 
-import com.amazon.customerService.model.Customer;
-import lombok.extern.slf4j.Slf4j;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.crac.Context;
+import org.crac.Core;
+import org.crac.Resource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
+
+import com.amazon.customerService.model.Customer;
+import com.amazon.customerService.utils.TimingUtils;
+
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.*;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
 @Slf4j
 @Repository
@@ -40,13 +58,36 @@ public class CustomerRepository {
     public static final String REGISTRATION_DATE_COLUMN = "RegistrationDate";
     private final SimpleDateFormat sdf;
     DynamoDbClient client;
-
+    
+    @Value("${mode}")
+    private String mode;
+    
+    private final Resource cracHandler;
+    
     public CustomerRepository() {
         this.client = createDynamoDbClient();
 
         sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-    }
+        
+        cracHandler = new Resource() {
+            @Override
+            public void beforeCheckpoint(Context<? extends Resource> context) {
+               log.info("Executing beforeCheckpoint...");
+               closeClient();
+            }
 
+            @Override
+            public void afterRestore(Context<? extends Resource> context) {
+                log.info("Executing afterRestore ...");
+                createClient();
+                log.info("Invoking measureTime while setting end time to now...");
+                TimingUtils.measureTime(Instant.now());
+            }
+        };
+
+        Core.getGlobalContext().register(cracHandler);
+    }
+    
     public Customer save(final Customer customer) {
 
         customer.setId(UUID.randomUUID().toString());
@@ -60,7 +101,7 @@ public class CustomerRepository {
                 .item(convertPojoToMap(customer))
                 .build();
 
-        PutItemResponse response = client.putItem(putItemRequest);
+        client.putItem(putItemRequest);
 
         return customer;
     }
@@ -124,7 +165,7 @@ public class CustomerRepository {
                 .key(key)
                 .build();
 
-        DeleteItemResponse item = client.deleteItem(deleteItemRequest);
+        client.deleteItem(deleteItemRequest);
     }
 
     private Map<String, AttributeValue> convertPojoToMap(final Customer customer) {
@@ -169,7 +210,7 @@ public class CustomerRepository {
     }
 
     public DynamoDbClient createDynamoDbClient() {
-        String mode = System.getProperty("mode");
+    	log.info("Mode:" + mode);
         if ("ci".equals(mode)) {
             return DynamoDbClient.builder()
                     .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
