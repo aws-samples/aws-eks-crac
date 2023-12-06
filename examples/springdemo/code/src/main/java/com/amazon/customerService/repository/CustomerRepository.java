@@ -28,7 +28,6 @@ import java.util.UUID;
 import org.crac.Context;
 import org.crac.Core;
 import org.crac.Resource;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import com.amazon.customerService.model.Customer;
@@ -58,9 +57,6 @@ public class CustomerRepository {
     public static final String REGISTRATION_DATE_COLUMN = "RegistrationDate";
     private final SimpleDateFormat sdf;
     DynamoDbClient client;
-    
-    @Value("${mode}")
-    private String mode;
     
     private final Resource cracHandler;
     
@@ -210,6 +206,7 @@ public class CustomerRepository {
     }
 
     public DynamoDbClient createDynamoDbClient() {
+    	String mode = System.getProperty("mode");
     	log.info("Mode:" + mode);
         if ("ci".equals(mode)) {
             return DynamoDbClient.builder()

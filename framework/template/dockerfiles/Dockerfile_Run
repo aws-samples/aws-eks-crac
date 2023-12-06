@@ -1,0 +1,2 @@
+FROM SRVC_NAME:wo-checkpoint
+COPY crac-files /opt/crac-files
