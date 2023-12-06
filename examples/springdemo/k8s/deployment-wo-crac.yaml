@@ -16,6 +16,7 @@ spec:
       containers:
       - name: spring-boot-ddb-wo-crac
         image: SRVC_IMAGE_WO_CRAC
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http

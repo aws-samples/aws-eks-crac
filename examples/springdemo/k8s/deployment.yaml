@@ -16,6 +16,7 @@ spec:
       containers:
       - name: spring-boot-ddb
         image: SRVC_IMAGE
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http

@@ -22,6 +22,14 @@ echo Taking a snapshot of the application using CRaC...
 mkdir /opt/logs/
 jcmd ${SRVC_JAR_FILE_NAME} JDK.checkpoint >> /opt/logs/snapshot.log
 
-# the code below is to keep the container running indefinitely
-echo Executing an infinite loop to keep the container running...
-while true; do sleep 1; done
+# Waiting till the checkpoint is captured correctly
+while true
+do 
+    echo Waiting till the checkpoint is captured correctly...
+    if ([ -f /opt/crac-files/dump4.log ]) && (grep -Fq "Dumping finished successfully" "/opt/crac-files/dump4.log")
+    then
+	    echo Checkpoint captured!
+	    break
+    fi
+    sleep 5
+done

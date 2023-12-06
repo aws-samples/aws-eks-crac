@@ -86,7 +86,7 @@ Copy the source code and CRaC scripts
 cd ~/environment
 cp -r aws-eks-crac/examples/${SRVC_NAME}/code/* ${SRVC_NAME}/
 cp aws-eks-crac/framework/template/codebuild/buildspec.yml ${SRVC_NAME}/
-cp aws-eks-crac/framework/template/docker/Dockerfile ${SRVC_NAME}/
+cp -r aws-eks-crac/framework/template/dockerfiles ${SRVC_NAME}
 cp -r aws-eks-crac/framework/template/scripts ${SRVC_NAME}
 ```
 
