@@ -10,6 +10,10 @@ Parameters:
   ServiceJarFilename:
     Type: String
     Description: Enter the service JAR filename
+  CracCheckpointsBucket:
+    Type: String
+    Description: Enter CRaC checkpoints S3 bucket name
+
 
 Resources:
   CiStack:
@@ -20,6 +24,7 @@ Resources:
         ServiceName: !Sub "${ServiceName}"
         CfnS3Bucket: !Sub "${CfnS3Bucket}"
         ServiceJarFilename: !Sub "${ServiceJarFilename}"
+        CracCheckpointsBucket: !Sub "${CracCheckpointsBucket}"
   InfraStack:
     Type: 'AWS::CloudFormation::Stack'
     Properties:

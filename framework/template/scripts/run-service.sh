@@ -1,7 +1,4 @@
+#! /bin/bash
 # run java
-echo 'Start time: '$(date +"%T.%3N")
-java -XX:CRaCRestoreFrom=/opt/crac-files -Dmode=${MODE} -Damazon.dynamodb.endpoint=${AMAZON_DYNAMO_DB_ENDPOINT} -Daws.webIdentityTokenFile="${AWS_WEB_IDENTITY_TOKEN_FILE}" -Daws.roleArn="${AWS_ROLE_ARN}" 
-
-# the code below is to keep the container running if the java process failed 
-echo Executing an infinite loop to keep the container running...
-while true; do sleep 1; done
+echo Starting the application...
+java -Dspring.profiles.active=prod -Dmode=${MODE} -Damazon.dynamodb.endpoint=${AMAZON_DYNAMO_DB_ENDPOINT} -XX:CRaCCheckpointTo=/opt/crac-files -jar /${SRVC_JAR_FILE_NAME}

@@ -7,6 +7,10 @@ Parameters:
   ServiceJarFilename:
     Type: String
     Description: Enter the service JAR file name.
+  CracCheckpointsBucket:
+    Type: String
+    Description: Enter CRaC checkpoints S3 bucket name
+
 
 Resources:
   CiCodeBuildRole:
@@ -49,6 +53,13 @@ Resources:
                 Action:
                   - 's3:*'
                 Resource: '*'
+              - Effect: Allow #permissions to be narrowed down
+                Action:
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:DescribeSubnets"
+                  - "ec2:DescribeNetworkInterfaces"
+                  - "ec2:DeleteNetworkInterface"
+                Resource: '*'
 
   CiCodeBuild:
     Type: AWS::CodeBuild::Project
@@ -73,10 +84,22 @@ Resources:
           - Name: SRVC_JAR_FILE_NAME
             Type: PLAINTEXT
             Value: !Sub "${ServiceJarFilename}"
+          - Name: CRAC_CHECKPOINTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Sub "${CracCheckpointsBucket}"
         Image: "aws/codebuild/standard:7.0"
         ImagePullCredentialsType: "CODEBUILD"
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
+      VpcConfig:
+        SecurityGroupIds: [""]
+        Subnets: ["", "", ""]
+        VpcId: ""
+      FileSystemLocations:
+        - Identifier: ""
+          Location: ""
+          MountPoint: "/opt/crac-files"
+          Type: "EFS"
       LogsConfig:
         CloudWatchLogs: 
           Status: "ENABLED"
@@ -220,7 +243,7 @@ Resources:
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                BranchName: 'main'
+                BranchName: 'master'
                 RepositoryName: !Ref ServiceName
                 PollForSourceChanges: false
               RunOrder: 1

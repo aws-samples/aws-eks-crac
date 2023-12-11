@@ -10,6 +10,10 @@ Parameters:
   ServiceJarFilename:
     Type: String
     Description: Enter the service JAR filename.
+  CracCheckpointsBucket:
+    Type: String
+    Description: Enter CRaC checkpoints S3 bucket name
+
 
 Resources:
   CiRole:
@@ -43,3 +47,4 @@ Resources:
       Parameters:
         ServiceName: !Sub "${ServiceName}"
         ServiceJarFilename: !Sub "${ServiceJarFilename}"
+        CracCheckpointsBucket: !Sub "${CracCheckpointsBucket}"
