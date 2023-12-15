@@ -10,7 +10,15 @@ Parameters:
   CracCheckpointsBucket:
     Type: String
     Description: Enter CRaC checkpoints S3 bucket name
-
+  VpcId:
+    Type: String
+    Description: Enter the id of the VPC that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  VpcSubnetIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the subnets that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the security group that CI uses for accessing VPC resources (EFS where CRaC checkpoint files are stored) 
 
 Resources:
   CiCodeBuildRole:
@@ -92,9 +100,9 @@ Resources:
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
       VpcConfig:
-        SecurityGroupIds: [""]
-        Subnets: ["", "", ""]
-        VpcId: ""
+        SecurityGroupIds: !Ref SecurityGroupIds
+        Subnets: !Ref VpcSubnetIds
+        VpcId: !Ref VpcId
       FileSystemLocations:
         - Identifier: ""
           Location: ""
@@ -113,12 +121,12 @@ Resources:
     Type: AWS::CodeCommit::Repository
     Properties: 
       RepositoryDescription: !Sub "This repo contains the code artifacts for ${ServiceName}"
-      RepositoryName: !Sub "${ServiceName}"
+      RepositoryName: !Ref ServiceName
 
   ServiceEcrRepo:
     Type: AWS::ECR::Repository
     Properties: 
-      RepositoryName: !Sub "${ServiceName}"
+      RepositoryName: !Ref ServiceName
       
   CodePipelineArtifactStoreBucket:
     Type: 'AWS::S3::Bucket'

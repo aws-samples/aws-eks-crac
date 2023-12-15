@@ -13,7 +13,15 @@ Parameters:
   CracCheckpointsBucket:
     Type: String
     Description: Enter CRaC checkpoints S3 bucket name
-
+  VpcId:
+    Type: String
+    Description: Enter the id of the VPC that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  VpcSubnetIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the subnets that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the security group that CI uses for accessing VPC resources (EFS where CRaC checkpoint files are stored) 
 
 Resources:
   CiRole:
@@ -45,6 +53,9 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${CfnS3Bucket}.s3.${AWS::Region}.amazonaws.com/ci.yaml"
       Parameters:
-        ServiceName: !Sub "${ServiceName}"
-        ServiceJarFilename: !Sub "${ServiceJarFilename}"
-        CracCheckpointsBucket: !Sub "${CracCheckpointsBucket}"
+        ServiceName: !Ref ServiceName
+        ServiceJarFilename: !Ref ServiceJarFilename
+        CracCheckpointsBucket: !Ref CracCheckpointsBucket
+        VpcId: !Ref VpcId
+        VpcSubnetIds: !Join [",", !Ref VpcSubnetIds]
+        SecurityGroupIds: !Join [",", !Ref SecurityGroupIds]
