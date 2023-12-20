@@ -19,6 +19,9 @@ Parameters:
   SecurityGroupIds:
     Type: CommaDelimitedList
     Description: Enter the ids of the security group that CI uses for accessing VPC resources (EFS where CRaC checkpoint files are stored) 
+  EfsDns:
+    Type: String
+    Description: Enter the EFS filesystem DNS
 
 Resources:
   CiCodeBuildRole:
@@ -104,8 +107,8 @@ Resources:
         Subnets: !Ref VpcSubnetIds
         VpcId: !Ref VpcId
       FileSystemLocations:
-        - Identifier: ""
-          Location: ""
+        - Identifier: "crac_checkpoints_efs"
+          Location: !Sub "${EfsDns}:/"
           MountPoint: "/opt/crac-files"
           Type: "EFS"
       LogsConfig:

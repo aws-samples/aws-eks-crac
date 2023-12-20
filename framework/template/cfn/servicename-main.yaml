@@ -22,6 +22,9 @@ Parameters:
   SecurityGroupIds:
     Type: CommaDelimitedList
     Description: Enter the ids of the security group that CI uses for accessing VPC resources (EFS where CRaC checkpoint files are stored) 
+  EfsDns:
+    Type: String
+    Description: Enter the EFS filesystem DNS
 
 Resources:
   CiStack:
@@ -36,6 +39,7 @@ Resources:
         VpcId: !Ref VpcId
         VpcSubnetIds: !Join [",", !Ref VpcSubnetIds]
         SecurityGroupIds: !Join [",", !Ref SecurityGroupIds]
+        EfsDns: !Ref EfsDns
 
   InfraStack:
     Type: 'AWS::CloudFormation::Stack'
@@ -43,4 +47,3 @@ Resources:
       TemplateURL: !Sub "https://${CfnS3Bucket}.s3.${AWS::Region}.amazonaws.com/${ServiceName}-infra.yaml"
       Parameters:
         ServiceName: !Sub "${ServiceName}"
-        
