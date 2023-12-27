@@ -41,13 +41,14 @@ git clone https://github.com/aws-samples/aws-eks-crac.git
 
 First, CDK must be bootstrapped prior to deploying stacks. Bootstrapping is a process of creating IAM roles and Lambda functions that can execute some of the common CDK constructs. The following must be run once, in the account where the stack is deployed.
 ```
+cd ~/environment/aws-eks-crac/base
+npm install
 cdk bootstrap
 ``` 
 
 Once CDK is bootstrapped, the base setup is deployed and updated with the following command:
 
 ```
-cd ~/environment/aws-eks-crac/base
 cdk deploy --all
 ```
 
@@ -199,7 +200,7 @@ kubectl apply -f aws-eks-crac/examples/springdemo/k8s
 
 10. Test the various deployments of the application
 ```
-export APP_HOSTNAME=$(kubectl get ingress spring-boot-ddb-crac-efs-mount-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export APP_HOSTNAME=$(kubectl get ingress spring-boot-ddb-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 curl -d '{"name":"islam", "email":"islam@mahgoub.com", "accountNumber": "1234567"}' -H "Content-Type: application/json" -X POST http://${APP_HOSTNAME}/api/customers
 curl http://${APP_HOSTNAME}/api/customers
 
