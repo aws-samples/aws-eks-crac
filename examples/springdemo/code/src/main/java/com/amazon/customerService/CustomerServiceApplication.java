@@ -27,7 +27,7 @@ public class CustomerServiceApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(CustomerServiceApplication.class, args);
-        TimingUtils.measureTime(Instant.now());
+        //TimingUtils.measureTime(Instant.now());
     }
 
 

@@ -15,7 +15,7 @@ spec:
       serviceAccountName: spring-boot-ddb
       containers:
       - name: spring-boot-ddb
-        image: 656220021423.dkr.ecr.eu-west-1.amazonaws.com/springdemo:v22
+        image: $SRVC_IMAGE_WO_CRAC
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -25,7 +25,7 @@ spec:
         args: ["/opt/scripts/run-service.sh"]
         env:
         - name: SRVC_JAR_FILE_NAME
-          value: CustomerService-0.0.1.jar
+          value: $SRVC_JAR_FILENAME
         - name: MODE
           valueFrom:
             configMapKeyRef:

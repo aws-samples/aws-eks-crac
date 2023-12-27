@@ -19,7 +19,7 @@ spec:
             claimName: efs-claim
       containers:
       - name: spring-boot-ddb-crac-efs-mount
-        image: 656220021423.dkr.ecr.eu-west-1.amazonaws.com/springdemo:v22
+        image: $SRVC_IMAGE_WO_CRAC
         imagePullPolicy: Always
         volumeMounts:
           - name: persistent-storage
@@ -40,9 +40,9 @@ spec:
         args: ["/opt/scripts/run-service-crac.sh"]
         env:
         - name: CRAC_CHECKPOINT_PATH
-          value: /opt/crac-files/springdemo/v22
+          value: /opt/crac-files/$SRVC_NAME/$SRVC_VERSION
         - name: SRVC_JAR_FILE_NAME
-          value: CustomerService-0.0.1.jar
+          value: $SRVC_JAR_FILENAME
         - name: MODE
           valueFrom:
             configMapKeyRef:
