@@ -1,31 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-boot-ddb
+  name: spring-boot-ddb-crac
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spring-boot-ddb
+      app: spring-boot-ddb-crac
   template:
     metadata:
       labels:
-        app: spring-boot-ddb
+        app: spring-boot-ddb-crac
     spec:
       serviceAccountName: spring-boot-ddb
       containers:
-      - name: spring-boot-ddb
-        image: $SRVC_IMAGE_WO_CRAC
+      - name: spring-boot-ddb-crac
+        image: $SRVC_IMAGE
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
-        command: ["/bin/bash"]
-        args: ["/opt/scripts/run-service.sh"]
         env:
-        - name: SRVC_JAR_FILE_NAME
-          value: $SRVC_JAR_FILENAME
+        - name: CRAC_CHECKPOINT_PATH
+          value: /opt/crac-files
         - name: MODE
           valueFrom:
             configMapKeyRef:
@@ -36,6 +34,16 @@ spec:
             configMapKeyRef:
               name: spring-demo-config
               key: amazon.dynamodb.endpoint
+        securityContext:
+          capabilities:
+            add:
+              - CHECKPOINT_RESTORE
+              - SYS_PTRACE
+          privileged: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+        command: ["/bin/bash"]
+        args: ["/opt/scripts/run-service-crac.sh"]
         readinessProbe:
           httpGet:
             path: /actuator/health/readiness
@@ -43,11 +51,12 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 1
           failureThreshold: 60
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: spring-boot-ddb-service
+  name: spring-boot-ddb-crac-service
 spec:
   ports:
     - port: 8080
@@ -55,12 +64,12 @@ spec:
       protocol: TCP
   type: NodePort
   selector:
-    app: spring-boot-ddb
+    app: spring-boot-ddb-crac
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spring-boot-ddb-ingress
+  name: spring-boot-ddb-crac-ingress
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -73,6 +82,6 @@ spec:
           pathType: Prefix
           backend:
             service:
-              name: spring-boot-ddb-service
+              name: spring-boot-ddb-crac-service
               port:
                 number: 8080

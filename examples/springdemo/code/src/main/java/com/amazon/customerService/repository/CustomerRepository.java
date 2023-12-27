@@ -76,8 +76,8 @@ public class CustomerRepository {
             public void afterRestore(Context<? extends Resource> context) {
                 log.info("Executing afterRestore ...");
                 createClient();
-                log.info("Invoking measureTime while setting end time to now...");
-                TimingUtils.measureTime(Instant.now());
+                //log.info("Invoking measureTime while setting end time to now...");
+                //TimingUtils.measureTime(Instant.now());
             }
         };
 
@@ -211,13 +211,11 @@ public class CustomerRepository {
         if ("ci".equals(mode)) {
             return DynamoDbClient.builder()
                     .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-                    .region(Region.EU_WEST_1)
                     .build();
         }
 
         return DynamoDbClient.builder()
                 .credentialsProvider(WebIdentityTokenFileCredentialsProvider.create())
-                .region(Region.EU_WEST_1)
                 .build();
     }
 }

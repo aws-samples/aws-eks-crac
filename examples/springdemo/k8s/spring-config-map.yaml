@@ -3,5 +3,5 @@ kind: ConfigMap
 metadata:
   name: spring-demo-config
 data:
-  amazon.dynamodb.endpoint: "https://dynamodb.eu-west-1.amazonaws.com"
+  amazon.dynamodb.endpoint: "https://dynamodb.$REGION.amazonaws.com"
   mode: "prod"

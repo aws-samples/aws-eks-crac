@@ -1,31 +1,48 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-boot-ddb
+  name: spring-boot-ddb-crac-s3-mount
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spring-boot-ddb
+      app: spring-boot-ddb-crac-s3-mount
   template:
     metadata:
       labels:
-        app: spring-boot-ddb
+        app: spring-boot-ddb-crac-s3-mount
     spec:
       serviceAccountName: spring-boot-ddb
+      volumes:
+        - name: persistent-storage
+          persistentVolumeClaim:
+            claimName: s3-claim
       containers:
-      - name: spring-boot-ddb
-        image: $SRVC_IMAGE_WO_CRAC
+      - name: spring-boot-ddb-crac-s3-mount
+        image: 656220021423.dkr.ecr.eu-west-1.amazonaws.com/springdemo:v22
         imagePullPolicy: Always
+        volumeMounts:
+          - name: persistent-storage
+            mountPath: /opt/crac-files
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+              - CHECKPOINT_RESTORE
+              - SYS_PTRACE
+          privileged: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
         command: ["/bin/bash"]
-        args: ["/opt/scripts/run-service.sh"]
+        args: ["/opt/scripts/run-service-crac.sh"]
         env:
+        - name: CRAC_CHECKPOINT_PATH
+          value: /opt/crac-files/springdemo/v22
         - name: SRVC_JAR_FILE_NAME
-          value: $SRVC_JAR_FILENAME
+          value: CustomerService-0.0.1.jar
         - name: MODE
           valueFrom:
             configMapKeyRef:
@@ -47,7 +64,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: spring-boot-ddb-service
+  name: spring-boot-ddb-crac-s3-mount-service
 spec:
   ports:
     - port: 8080
@@ -55,12 +72,12 @@ spec:
       protocol: TCP
   type: NodePort
   selector:
-    app: spring-boot-ddb
+    app: spring-boot-ddb-crac-s3-mount
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spring-boot-ddb-ingress
+  name: spring-boot-ddb-crac-s3-mount-ingress
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -73,6 +90,6 @@ spec:
           pathType: Prefix
           backend:
             service:
-              name: spring-boot-ddb-service
+              name: spring-boot-ddb-crac-s3-mount-service
               port:
                 number: 8080

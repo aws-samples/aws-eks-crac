@@ -1,31 +1,43 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-boot-ddb-wo-crac
+  name: spring-boot-ddb-crac-s3-cli
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spring-boot-ddb-wo-crac
+      app: spring-boot-ddb-crac-s3-cli
   template:
     metadata:
       labels:
-        app: spring-boot-ddb-wo-crac
+        app: spring-boot-ddb-crac-s3-cli
     spec:
       serviceAccountName: spring-boot-ddb
       containers:
-      - name: spring-boot-ddb-wo-crac
-        image: SRVC_IMAGE_WO_CRAC
+      - name: spring-boot-ddb-crac-s3-cli
+        image: $SRVC_IMAGE_WO_CRAC
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+              - CHECKPOINT_RESTORE
+              - SYS_PTRACE
+          privileged: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
         command: ["/bin/bash"]
-        args: ["/opt/scripts/run-service-wo-crac.sh"]
+        args: ["/opt/scripts/run-service-crac-s3.sh"]
         env:
+        - name: CRAC_CHECKPOINT_PATH
+          value: /opt/crac-files
+        - name: CRAC_CHECKPOINT_S3
+          value: $CRAC_CHECKPOINTS_S3/$SRVC_NAME/$SRVC_VERSION
         - name: SRVC_JAR_FILE_NAME
-          value: CustomerService-0.0.1.jar
+          value: $SRVC_JAR_FILENAME
         - name: MODE
           valueFrom:
             configMapKeyRef:
@@ -47,7 +59,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: spring-boot-ddb-wo-crac-service
+  name: spring-boot-ddb-crac-s3-cli-service
 spec:
   ports:
     - port: 8080
@@ -55,12 +67,12 @@ spec:
       protocol: TCP
   type: NodePort
   selector:
-    app: spring-boot-ddb-wo-crac
+    app: spring-boot-ddb-crac-s3-cli
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spring-boot-ddb-wo-crac-ingress
+  name: spring-boot-ddb-crac-s3-cli-ingress
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -73,6 +85,6 @@ spec:
           pathType: Prefix
           backend:
             service:
-              name: spring-boot-ddb-wo-crac-service
+              name: spring-boot-ddb-crac-s3-cli-service
               port:
-                number: 8080              
+                number: 8080

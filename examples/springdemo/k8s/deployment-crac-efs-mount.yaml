@@ -1,29 +1,46 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-boot-ddb
+  name: spring-boot-ddb-crac-efs-mount
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spring-boot-ddb
+      app: spring-boot-ddb-crac-efs-mount
   template:
     metadata:
       labels:
-        app: spring-boot-ddb
+        app: spring-boot-ddb-crac-efs-mount
     spec:
       serviceAccountName: spring-boot-ddb
+      volumes:
+        - name: persistent-storage
+          persistentVolumeClaim:
+            claimName: efs-claim
       containers:
-      - name: spring-boot-ddb
+      - name: spring-boot-ddb-crac-efs-mount
         image: $SRVC_IMAGE_WO_CRAC
         imagePullPolicy: Always
+        volumeMounts:
+          - name: persistent-storage
+            mountPath: /opt/crac-files
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+              - CHECKPOINT_RESTORE
+              - SYS_PTRACE
+          privileged: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
         command: ["/bin/bash"]
-        args: ["/opt/scripts/run-service.sh"]
+        args: ["/opt/scripts/run-service-crac.sh"]
         env:
+        - name: CRAC_CHECKPOINT_PATH
+          value: /opt/crac-files/$SRVC_NAME/$SRVC_VERSION
         - name: SRVC_JAR_FILE_NAME
           value: $SRVC_JAR_FILENAME
         - name: MODE
@@ -47,7 +64,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: spring-boot-ddb-service
+  name: spring-boot-ddb-crac-efs-mount-service
 spec:
   ports:
     - port: 8080
@@ -55,12 +72,12 @@ spec:
       protocol: TCP
   type: NodePort
   selector:
-    app: spring-boot-ddb
+    app: spring-boot-ddb-crac-efs-mount
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spring-boot-ddb-ingress
+  name: spring-boot-ddb-crac-efs-mount-ingress
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -73,6 +90,6 @@ spec:
           pathType: Prefix
           backend:
             service:
-              name: spring-boot-ddb-service
+              name: spring-boot-ddb-crac-efs-mount-service
               port:
                 number: 8080

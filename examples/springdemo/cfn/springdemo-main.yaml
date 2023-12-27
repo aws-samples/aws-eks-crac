@@ -10,6 +10,21 @@ Parameters:
   ServiceJarFilename:
     Type: String
     Description: Enter the service JAR filename
+  CracCheckpointsBucket:
+    Type: String
+    Description: Enter CRaC checkpoints S3 bucket name
+  VpcId:
+    Type: String
+    Description: Enter the id of the VPC that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  VpcSubnetIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the subnets that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the security group that CI uses for accessing VPC resources (EFS where CRaC checkpoint files are stored) 
+  EfsDns:
+    Type: String
+    Description: Enter the EFS filesystem DNS
 
 Resources:
   CiStack:
@@ -20,6 +35,12 @@ Resources:
         ServiceName: !Sub "${ServiceName}"
         CfnS3Bucket: !Sub "${CfnS3Bucket}"
         ServiceJarFilename: !Sub "${ServiceJarFilename}"
+        CracCheckpointsBucket: !Sub "${CracCheckpointsBucket}"
+        VpcId: !Ref VpcId
+        VpcSubnetIds: !Join [",", !Ref VpcSubnetIds]
+        SecurityGroupIds: !Join [",", !Ref SecurityGroupIds]
+        EfsDns: !Ref EfsDns
+
   InfraStack:
     Type: 'AWS::CloudFormation::Stack'
     Properties:

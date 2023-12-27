@@ -13,8 +13,12 @@ RUN apt-get update --fix-missing \
 
 FROM azul/zulu-openjdk:17-jdk-crac
 
-RUN chown root:root $JAVA_HOME/lib/criu \
+RUN apt-get update --fix-missing \
+    && apt-get install zip curl -y \
+    && curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install \
+    && chown root:root $JAVA_HOME/lib/criu \
     && chmod 777 $JAVA_HOME/lib/criu
-    
 COPY scripts/* /opt/scripts/
 COPY --from=builder target/${SRVC_JAR_FILE_NAME} ${SRVC_JAR_FILE_NAME}

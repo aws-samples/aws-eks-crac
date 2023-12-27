@@ -7,6 +7,21 @@ Parameters:
   ServiceJarFilename:
     Type: String
     Description: Enter the service JAR file name.
+  CracCheckpointsBucket:
+    Type: String
+    Description: Enter CRaC checkpoints S3 bucket name
+  VpcId:
+    Type: String
+    Description: Enter the id of the VPC that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  VpcSubnetIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the subnets that CI runs in (should have access to EFS where CRaC checkpoint files are stored)
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: Enter the ids of the security group that CI uses for accessing VPC resources (EFS where CRaC checkpoint files are stored) 
+  EfsDns:
+    Type: String
+    Description: Enter the EFS filesystem DNS
 
 Resources:
   CiCodeBuildRole:
@@ -49,6 +64,23 @@ Resources:
                 Action:
                   - 's3:*'
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - "ec2:CreateNetworkInterface"
+                  - "ec2:DescribeDhcpOptions"
+                  - "ec2:DescribeNetworkInterfaces"
+                  - "ec2:DeleteNetworkInterface"
+                  - "ec2:DescribeSubnets"
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:DescribeVpcs"
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - "ec2:CreateNetworkInterfacePermission"
+                Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+                Condition:
+                  StringEquals:
+                    "ec2:AuthorizedService": "codebuild.amazonaws.com"
 
   CiCodeBuild:
     Type: AWS::CodeBuild::Project
@@ -73,10 +105,22 @@ Resources:
           - Name: SRVC_JAR_FILE_NAME
             Type: PLAINTEXT
             Value: !Sub "${ServiceJarFilename}"
+          - Name: CRAC_CHECKPOINTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Sub "${CracCheckpointsBucket}"
         Image: "aws/codebuild/standard:7.0"
         ImagePullCredentialsType: "CODEBUILD"
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        Subnets: !Ref VpcSubnetIds
+        VpcId: !Ref VpcId
+      FileSystemLocations:
+        - Identifier: "crac_checkpoints_efs"
+          Location: !Sub "${EfsDns}:/"
+          MountPoint: "/opt/crac-files"
+          Type: "EFS"
       LogsConfig:
         CloudWatchLogs: 
           Status: "ENABLED"
@@ -90,12 +134,12 @@ Resources:
     Type: AWS::CodeCommit::Repository
     Properties: 
       RepositoryDescription: !Sub "This repo contains the code artifacts for ${ServiceName}"
-      RepositoryName: !Sub "${ServiceName}"
+      RepositoryName: !Ref ServiceName
 
   ServiceEcrRepo:
     Type: AWS::ECR::Repository
     Properties: 
-      RepositoryName: !Sub "${ServiceName}"
+      RepositoryName: !Ref ServiceName
       
   CodePipelineArtifactStoreBucket:
     Type: 'AWS::S3::Bucket'
@@ -220,7 +264,7 @@ Resources:
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                BranchName: 'main'
+                BranchName: 'master'
                 RepositoryName: !Ref ServiceName
                 PollForSourceChanges: false
               RunOrder: 1
