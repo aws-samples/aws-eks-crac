@@ -11,12 +11,41 @@ In this sample implementation, we demonstrate how CRaC can be leveraged in a CI 
 
 ## Solution
 ### Architecture overview
+The diagram below depicts the architecture of the sample implementation:
+
 ![Architecture](images/architecture.png)
+
+The CI pipeline is extended to run the new version of the code, warm it up, capture a checkpoint using CRaC, and publish a container image with CRaC checkpoint files to the containers registry (Amazon ECR). The application is started on the target environment by restoring it from the checkpoint files rather than starting it from scratch leading to significant reduction in startup time, and elimination of the spike in compute resources consumption that is usually observed at Java applications startup time.
+
+The flow is as follows:
+1. After the commit of a new version of the code, the CI pipeline on AWS CodePipeline checks out the source code
+2. A build run on AWS CodeBuild is initiated and performs the following:
+    * Compiles the new version of the code producing a JAR file, and creates an image that contains the JAR file
+    * Runs a container from the image with the application running inside
+    * Warms up the application by sending traffic that simulate the traffic expected in the target environment, then capture a checkpoint
+    * Creates an image that contains the JAR file and CRaC checkpoint files
+    * Pushes the images to Amazon ECR
+3. K8s manifests that deploys the application are applied to Amazon EKS clusters that comprises that target environment. For comparison purposes, two deployments are created; one that points to the image without CRaC checkpoint files where the application is started from scratch, and the other deployment points to the image with CRaC checkpoint files where the application is started by restoring it from the captured checkpoint.
+
+### Externalize checkpoint files
+Some organisations may want to refrain from keeping checkpoint files in the container image; reasons for that include:
+- Reducing the container image size
+- Not changing the nature of data stored in ECR to contain microservices in-memory data, and avoiding revisiting the configured security controls that would be needed otherwise
+
+To migitate these concerns, consider the following (depicted in the diagram below):
+- Storing the checkpoint files in EFS, and mounting it in the pod. We observed that restoring the sample Java process take 2 seconds when the checkpoint files are stored in EFS versus 0.3 seconds when the checkpoint files are part of the container image.
+- Storing the checkpoint files in S3, and syncing to the pod filesystem at start-up time. We observed that the sync operations takes 6 seconds for checkpoint files of size 170 MB on worker nodes of m5.large (public S3 endpoint was used for this testing).
+
+![Architecture](images/architecture-externalize-checkpoint.png)
+
+The CI pipeline is further extended to store CRaC checkpoint files in Amazon EFS and Amazon S3.
+
+To reduce the latency introduced by externalizing the checkpoint files (1.7 seconds in case of EFS, and 6 seconds in case of S3), consider syncing the checkpoint files for microservices into the worker node file system as part of the worker node provisioning, and mounting that into pods as local persistent volumes.
 
 ### Configuration management
 Configurations are string values that inform how your code executes; those that can change from an environment to another e.g. database strings, backend systems credentials, HTTP endpoints, mode, etc.
 
-If the checkpoint is captured on an environment (e.g. CI environment) that is different from the one it will be restored on (e.g. prod), the configurations need to updated as part of the checkpoint restoration to match the target environment (this is not needed if the environments where the checkpoint is captured and restored are the same).
+If the checkpoint is captured on an environment (e.g. CI environment) that is different from the one it will be restored on (e.g. prod environment), the configurations need to updated as part of the checkpoint restoration to match the target environment (this is not needed if the environments where the checkpoint is captured and restored are the same).
 
 There are several mechanisms that can be used for configuration management in Java – this includes OS environment variables, command line parameters, Java system properties, and configuration files (e.g. application.properties files for Spring applications). The values of the OS environment variables in application restored from a checkpoint are those of the environment where the checkpoint is captured; the same challenge exists in case of command line parameters.
 
@@ -24,18 +53,25 @@ Spring Framework provides [Environment Abstraction](https://docs.spring.io/sprin
 
 In this sample implementation, one of the configurations is `mode` that controls how the AWS credentials are obtained; on CI environment it is set `ci`, and on the target environment, it is set `prod`. The code uses Environment Abstraction provided by Spring Framework for accessing configurations that are defined as Java system properties in this sample implementation.
 
+### AWS credentials
+This sample implementation uses DynamoDB as a persistence layer. For the application to interact with DynamoDB, it needs AWS credentials.
 
-### Externalize checkpoint files
-Some organisations may want to refrain from keeping checkpoint files in the container image; reasons for that include:
-- Reducing the container image size
-- Not changing the nature of data stored in ECR to contain microservices in-memory data, and avoiding revisiting the configured security controls that would be needed otherwise
+In CI environment, an IAM role is assumed, and temp credentials are provided to the application as OS environment variables. So, EnvironmentVariableCredentialsProvider is used as credentials provider.
 
-To migitate these concerns, consider the following:
-- Storing the checkpoint files in EFS, and mounting it in the pod. We observed that restoring the sample Java process take 2 seconds when the checkpoint files are stored in EFS versus 0.3 seconds when the checkpoint files are part of the container image.
-- Storing the checkpoint files in S3, and syncing to the pod filesystem at start-up time. We observed that the sync operations takes 6 seconds for checkpoint files of size 170 MB on worker nodes of m5.large (public S3 endpoint was used for this testing).
+The target environment is based on Amazon EKS i.e. IAM roles for service accounts (IRSA) needs to be used for interacting with AWS API. So, WebIdentityTokenFileCredentialsProvider is used as credentials provider in this case.
 
-To reduce the latency introduced by externalizing the checkpoint files (1.7 seconds in case of EFS, and 6 seconds in case of S3), consider syncing the checkpoint files for microservices into the worker node file system as part of the worker node provisioning, and mounting that into pods as local persistent volumes.
+The configuration `mode` is used to instruct the code whether to use EnvironmentVariableCredentialsProvider or WebIdentityTokenFileCredentialsProvider.
 
+Some customers prefer to capture the checkpoint on the same environment it will be restored on to avoid the complexity involved in changing configurations and managing AWS credentials.
+
+### Containers security
+This sample implementation uses OpenJDK distribution produced by Azul that supports CRaC, and leverages CRIU for checkpoint/restore functionality.
+
+Earlier, CRIU needed extended system capabilities for capturing/restoring checkpoints (`CAP_SYS_ADMIN`), which was not ideal. CRIU team worked with the Linux kernel team on introducing `CAP_CHECKPOINT_RESTORE`, a new capability for facilitating checkpoint/restore for non-root users, and eliminating the need for granting `CAP_SYS_ADMIN` capability. So, it is no longer required to run the Java application (restored from a checkpoint) in privileged mode or with `CAP_SYS_ADMIN` capability; only `CAP_CHECKPOINT_RESTORE` and `SYS_PTRACE` capabilities are required.
+
+Please note that `CAP_CHECKPOINT_RESTORE` system capability was introduced in Linux kernel 5.9, while CodeBuild underlying instances are running Linux kernel 4.14. So, docker was run within CodeBuild in privileged mode for the purpose of capturing checkpoint. On the target environment (Amazon EKS) though, worker nodes are running Linux Kernel 5.10 (> 5.9). So, the narrowed down system capabilities (`CAP_CHECKPOINT_RESTORE` and `SYS_PTRACE`) were used.
+
+Please note that AWS Fargate is not supported as it only supports adding the `SYS_PTRACE` kernel capability; `CAP_SYS_ADMIN` and `CAP_CHECKPOINT_RESTORE` cannot be added.
 
 ### Reduce image pull time
 TBC
@@ -243,17 +279,6 @@ CRaC - EFS | 170 | 346 | - | 2 | 2
 CRaC - S3 CLI | 170 | 530 | 6 | 0.3 | 6.3
 CRaC - S3 CLI (VPC endpoint) |  |  |  |  | 
 CRaC - S3 Express One Zone |  |  |  |  | 
-
-### Performance testing
-TBC 
-```
-POD_NAME=$(kubectl get pod -l app=spring-boot-ddb-crac -o jsonpath="{.items[0].metadata.name}")
-kubectl get events -o custom-columns=Time:.lastTimestamp,From:.source.component,Type:.type,Reason:.reason,Message:.message  --field-selector involvedObject.name=$POD_NAME,involvedObject.kind=Pod
-```
-
-## Notes
-- Fargate is not supported
-
 
 ## Security
 
