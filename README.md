@@ -13,6 +13,18 @@ In this sample implementation, we demonstrate how CRaC can be leveraged in a CI 
 ### Architecture overview
 ![Architecture](images/architecture.png)
 
+### Configuration management
+Configurations are string values that inform how your code executes; those that can change from an environment to another e.g. database strings, backend systems credentials, HTTP endpoints, mode, etc.
+
+If the checkpoint is captured on an environment (e.g. CI environment) that is different from the one it will be restored on (e.g. prod), the configurations need to updated as part of the checkpoint restoration to match the target environment (this is not needed if the environments where the checkpoint is captured and restored are the same).
+
+There are several mechanisms that can be used for configuration management in Java – this includes OS environment variables, command line parameters, Java system properties, and configuration files (e.g. application.properties files for Spring applications). The values of the OS environment variables in application restored from a checkpoint are those of the environment where the checkpoint is captured; the same challenge exists in case of command line parameters.
+
+Spring Framework provides [Environment Abstraction](https://docs.spring.io/spring-framework/reference/core/beans/environment.html) for facilitating configuration management; it supports various configuration management mechanisms – this includes: OS environment variables, Java system properties, and other mechanisms.
+
+In this sample implementation, one of the configurations is `mode` that controls how the AWS credentials are obtained; on CI environment it is set `ci`, and on the target environment, it is set `prod`. The code uses Environment Abstraction provided by Spring Framework for accessing configurations that are defined as Java system properties in this sample implementation.
+
+
 ### Externalize checkpoint files
 Some organisations may want to refrain from keeping checkpoint files in the container image; reasons for that include:
 - Reducing the container image size
@@ -171,9 +183,7 @@ git push
 cd ~/environment/
 
 export SRVC_IMAGE_WO_CRAC=$(aws ecr describe-repositories --repository-name ${SRVC_NAME} --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]') # the order of build commands means the second last image is always the base
-
 export SRVC_IMAGE=$(aws ecr describe-repositories --repository-name ${SRVC_NAME} --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]') # the order of build commands means the latest image is always the checkpoint
-
 export SRVC_VERSION=$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')
 
 sed -i "s|\$SRVC_IMAGE_WO_CRAC|$SRVC_IMAGE_WO_CRAC|" aws-eks-crac/examples/springdemo/k8s/*.yaml
