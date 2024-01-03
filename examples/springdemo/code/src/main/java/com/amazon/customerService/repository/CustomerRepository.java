@@ -17,7 +17,6 @@ package com.amazon.customerService.repository;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -25,18 +24,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.annotation.PostConstruct;
+
 import org.crac.Context;
 import org.crac.Core;
 import org.crac.Resource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Repository;
 
 import com.amazon.customerService.model.Customer;
-import com.amazon.customerService.utils.TimingUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
@@ -55,17 +56,18 @@ public class CustomerRepository {
     public static final String EMAIL_COLUMN = "Email";
     public static final String ACCOUNT_NUMBER_COLUMN = "AccountNumber";
     public static final String REGISTRATION_DATE_COLUMN = "RegistrationDate";
-    private final SimpleDateFormat sdf;
-    DynamoDbClient client;
+    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
     
-    private final Resource cracHandler;
+    private DynamoDbClient client;
+ 
+    @Autowired
+    private Environment environment;
     
-    public CustomerRepository() {
-        this.client = createDynamoDbClient();
+    @PostConstruct
+    public void init() {
+    	this.client = createDynamoDbClient();
 
-        sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-        
-        cracHandler = new Resource() {
+        Core.getGlobalContext().register(new Resource() {
             @Override
             public void beforeCheckpoint(Context<? extends Resource> context) {
                log.info("Executing beforeCheckpoint...");
@@ -79,9 +81,7 @@ public class CustomerRepository {
                 //log.info("Invoking measureTime while setting end time to now...");
                 //TimingUtils.measureTime(Instant.now());
             }
-        };
-
-        Core.getGlobalContext().register(cracHandler);
+        });        
     }
     
     public Customer save(final Customer customer) {
@@ -206,8 +206,8 @@ public class CustomerRepository {
     }
 
     public DynamoDbClient createDynamoDbClient() {
-    	String mode = System.getProperty("mode");
-    	log.info("Mode:" + mode);
+    	String mode = environment.getProperty("mode");
+    	log.info("Mode (through Environment Abstraction):" + mode);
         if ("ci".equals(mode)) {
             return DynamoDbClient.builder()
                     .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
