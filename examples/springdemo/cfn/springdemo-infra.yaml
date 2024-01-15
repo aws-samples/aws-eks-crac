@@ -16,7 +16,7 @@ Resources:
         - AttributeName: "Id"
           KeyType: "HASH"
       ProvisionedThroughput: 
-        ReadCapacityUnits: "50"
-        WriteCapacityUnits: "50"
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
       TableName: "Customer"
 
