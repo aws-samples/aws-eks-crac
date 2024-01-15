@@ -3,6 +3,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as efs from 'aws-cdk-lib/aws-efs'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as logs from 'aws-cdk-lib/aws-logs'
 
 import { Construct } from 'constructs';
 
@@ -14,6 +15,8 @@ export class BaseStack extends Stack {
   public readonly efsSg: ec2.SecurityGroup;
   public readonly ciSg: ec2.SecurityGroup;
   
+  public readonly cracCheckpointsS3: s3.Bucket;
+  
   constructor(scope: Construct, id: string, props: StackProps) { 
     super(scope, id, props);
     
@@ -24,11 +27,22 @@ export class BaseStack extends Stack {
     new CfnOutput(this, 'VpcId', { value: this.vpc.vpcId});
     new CfnOutput(this, 'VpcPrivateSubnetIds', { value: this.vpc.selectSubnets({subnetType:ec2.SubnetType.PRIVATE_WITH_EGRESS}).subnetIds.toString()});
     
+    //enable VPC flow logs
+    const logGroup = new logs.LogGroup(this, 'VpcFlowLogsGroup');
+    const role = new iam.Role(this, 'MyCustomRole', {
+        assumedBy: new iam.ServicePrincipal('vpc-flow-logs.amazonaws.com')
+      });
+
+    new ec2.FlowLog(this, 'FlowLog', {
+      resourceType: ec2.FlowLogResourceType.fromVpc(this.vpc),
+      destination: ec2.FlowLogDestination.toCloudWatchLogs(logGroup, role)
+    });
+    
     //create EFS security group
     this.efsSg = new ec2.SecurityGroup(this, 'EfsSg', {
       vpc: this.vpc,
     });
-    this.efsSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.allTraffic(), ''); //to be narrowed down later to allow CI and EKS only
+    this.efsSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(2049), ''); //to be narrowed down later to allow CI and EKS only
     
     //create EFS file system
     this.efs = new efs.FileSystem(this, 'crac-checkpoints-efs', {
@@ -61,15 +75,28 @@ export class BaseStack extends Stack {
     });
     new CfnOutput(this, 'CiSgId', { value: this.ciSg.securityGroupId});
     
-    //create S3 bucket for checkpoint files
-    const cracCheckpointsS3 = new s3.Bucket(this, 'crac-checkpoints-s3bucket', {
-      bucketName: 'crac-checkpoints-' + process.env.CDK_DEFAULT_ACCOUNT
+    //create S3 bucket for access logs
+    const accessLogsS3 = new s3.Bucket(this, 'access-logs-s3bucket', {
+      bucketName: 'crac-accesslogs-' + process.env.CDK_DEFAULT_ACCOUNT,
+      enforceSSL: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
     });
-    new CfnOutput(this, 'CracCheckpointsS3', {value: cracCheckpointsS3.bucketName});
+    
+    //create S3 bucket for checkpoint files
+    this.cracCheckpointsS3 = new s3.Bucket(this, 'crac-checkpoints-s3bucket', {
+      bucketName: 'crac-checkpoints-' + process.env.CDK_DEFAULT_ACCOUNT,
+      serverAccessLogsBucket: accessLogsS3,
+      enforceSSL: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
+    });
+    new CfnOutput(this, 'CracCheckpointsS3', {value: this.cracCheckpointsS3.bucketName});
     
     //create S3 bucket for CI cloudformation templates
     const cracCfS3 = new s3.Bucket(this, 'crac-cf-s3bucket', {
-      bucketName: 'crac-cf-' + process.env.CDK_DEFAULT_ACCOUNT
+      bucketName: 'crac-cf-' + process.env.CDK_DEFAULT_ACCOUNT,
+      serverAccessLogsBucket: accessLogsS3,
+      enforceSSL: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
     });
     new CfnOutput(this, 'CracCfS3', {value: cracCfS3.bucketName});
   }
