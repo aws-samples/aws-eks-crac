@@ -77,6 +77,8 @@ Please note that AWS Fargate is not supported as it only supports adding the `SY
 TBC
 
 ## Implementation steps
+**NOTE:** The steps below have been tested on Cloud9 (Amazon Linux 2); some tweaks might be required if you use another environment.
+
 1. Clone the sample implementation repo
 
 **NOTE:** As the repo is not public yet, you need to reach out to the owner (mahgisla@), and get your github account granted access to be able to clone the repo. You will be prompted to enter GitHub credentials when you attempt to clone.
