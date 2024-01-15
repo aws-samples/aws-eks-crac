@@ -52,18 +52,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}-Ci:*"
               - Effect: Allow
                 Action:
-                  - "codecommit:*"
-                Resource:
-                  - !GetAtt ServiceGitRepo.Arn
+                  - "ecr:GetAuthorizationToken"
+                Resource: '*'
               - Effect: Allow
                 Action:
-                  - "ecr:*"
+                  - "ecr:DescribeRepositories"
+                  - "ecr:InitiateLayerUpload"
+                  - "ecr:UploadLayerPart"
+                  - "ecr:CompleteLayerUpload"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:PutImage"
                 Resource:
-                  - "*"
-              - Effect: Allow #permissions to be narrowed down
+                  - !GetAtt ServiceEcrRepo.Arn
+              - Effect: Allow
                 Action:
-                  - 's3:*'
-                Resource: '*'
+                  - "s3:DeleteObject"
+                  - "s3:GetBucketLocation"
+                  - "s3:GetObject"
+                  - "s3:ListBucket"
+                  - "s3:PutObject"
+                Resource: 
+                  - !Sub "arn:aws:s3:::${CracCheckpointsBucket}"
+                  - !Sub "arn:aws:s3:::${CracCheckpointsBucket}/${ServiceName}/*"
+                  - !Sub "${CodePipelineArtifactStoreBucket.Arn}"
+                  - !Sub "${CodePipelineArtifactStoreBucket.Arn}/*"
               - Effect: Allow
                 Action:
                   - "ec2:CreateNetworkInterface"
@@ -90,8 +102,6 @@ Resources:
       Description: !Sub "CodeBuild project that represents the CI pipeline for ${ServiceName}"
       Environment: 
         ComputeType: "BUILD_GENERAL1_SMALL"
-        EnvironmentVariables: 
-          - EnvironmentVariable
         EnvironmentVariables:
           - Name: SRVC_NAME
             Type: PLAINTEXT
@@ -297,7 +307,7 @@ Resources:
             Action: 'sts:AssumeRole'
       Path: /
       Policies:
-        - PolicyName: AWS-CodePipeline-Service-3
+        - PolicyName: AWS-CodePipeline-Policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -308,7 +318,7 @@ Resources:
                   - 'codecommit:GetCommit'
                   - 'codecommit:GetUploadArchiveStatus'
                   - 'codecommit:UploadArchive'
-                Resource: '*'
+                Resource: !GetAtt ServiceGitRepo.Arn
               - Effect: Allow
                 Action:
                   - 'codebuild:BatchGetBuilds'
@@ -321,7 +331,15 @@ Resources:
               - Effect: Allow
                 Action:
                   - 's3:*'
-                Resource: '*'
+                Resource: 
+                  - !GetAtt CodePipelineArtifactStoreBucket.Arn
+                  - !Join 
+                    - ''
+                    - - !GetAtt 
+                        - CodePipelineArtifactStoreBucket
+                        - Arn
+                      - /*
+                  
       
 Outputs:
   CiCodeBuildArn:
