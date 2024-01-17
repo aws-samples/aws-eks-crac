@@ -89,6 +89,8 @@ git clone https://github.com/aws-samples/aws-eks-crac.git
 
 2. Deploy the base setup of the solution via CDK (includes an EKS cluster, EFS file system and S3 bucket for storing the checkpoint files, and S3 bucket for storing the CI CloudFormation templates)
 
+**NOTE:** The CDK application is configuring the EFS security group to allow inbound connections from any IPv4 address for the time being; this needs to be narrowed down to CI (CodeBuild) and EKS.
+
 First, CDK must be bootstrapped prior to deploying stacks. Bootstrapping is a process of creating IAM roles and Lambda functions that can execute some of the common CDK constructs. The following must be run once, in the account where the stack is deployed.
 ```
 cd ~/environment/aws-eks-crac/base
