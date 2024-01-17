@@ -94,9 +94,24 @@ Resources:
                   StringEquals:
                     "ec2:AuthorizedService": "codebuild.amazonaws.com"
 
+  CiCodeBuildKms:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "KMS key for CodeBuild"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+          Action: 'kms:*'
+          Resource: '*'
+
   CiCodeBuild:
     Type: AWS::CodeBuild::Project
     Properties: 
+      EncryptionKey: !GetAtt CiCodeBuildKms.Arn
       Artifacts: 
         Type: NO_ARTIFACTS
       Description: !Sub "CodeBuild project that represents the CI pipeline for ${ServiceName}"
@@ -150,11 +165,21 @@ Resources:
     Type: AWS::ECR::Repository
     Properties: 
       RepositoryName: !Ref ServiceName
+      ImageScanningConfiguration:
+        ScanOnPush: true
       
   CodePipelineArtifactStoreBucket:
     Type: 'AWS::S3::Bucket'
     DeletionPolicy: Retain
-  
+    Properties:
+      LoggingConfiguration:
+        DestinationBucketName: !Sub 'crac-accesslogs-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   CodePipelineArtifactStoreBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
     Properties:
@@ -323,14 +348,14 @@ Resources:
                 Action:
                   - 'codebuild:BatchGetBuilds'
                   - 'codebuild:StartBuild'
-                Resource: '*'
+                Resource: !GetAtt CiCodeBuild.Arn
               - Effect: Allow
                 Action:
-                  - 'iam:PassRole'
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - 's3:*'
+                  - 's3:PutObject'
+                  - 's3:PutObjectAcl'
+                  - 's3:GetObject'
+                  - 's3:GetObjectAcl'
+                  - 's3:DeleteObject'
                 Resource: 
                   - !GetAtt CodePipelineArtifactStoreBucket.Arn
                   - !Join 
