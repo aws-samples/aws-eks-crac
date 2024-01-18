@@ -48,7 +48,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
 @Slf4j
 @Repository
-public class CustomerRepository {
+public class CustomerRepository implements Resource {
 
     public static final String TABLE_NAME = "Customer";
     public static final String ID_COLUMN = "Id";
@@ -66,24 +66,23 @@ public class CustomerRepository {
     @PostConstruct
     public void init() {
     	this.client = createDynamoDbClient();
-
-        Core.getGlobalContext().register(new Resource() {
-            @Override
-            public void beforeCheckpoint(Context<? extends Resource> context) {
-               log.info("Executing beforeCheckpoint...");
-               closeClient();
-            }
-
-            @Override
-            public void afterRestore(Context<? extends Resource> context) {
-                log.info("Executing afterRestore ...");
-                createClient();
-                //log.info("Invoking measureTime while setting end time to now...");
-                //TimingUtils.measureTime(Instant.now());
-            }
-        });        
+        Core.getGlobalContext().register(this);
     }
-    
+
+    @Override
+    public void beforeCheckpoint(Context<? extends Resource> context) {
+        log.info("Executing beforeCheckpoint...");
+        closeClient();
+    }
+
+    @Override
+    public void afterRestore(Context<? extends Resource> context) {
+        log.info("Executing afterRestore ...");
+        createClient();
+        //log.info("Invoking measureTime while setting end time to now...");
+        //TimingUtils.measureTime(Instant.now());
+    }
+
     public Customer save(final Customer customer) {
 
         customer.setId(UUID.randomUUID().toString());

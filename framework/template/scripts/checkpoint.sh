@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # pre-requisites
-apt-get --assume-yes install siege -y
+apt-get -y -qq install siege > /dev/null
 # start the application
 echo Starting the application...
 ( echo 128 > /proc/sys/kernel/ns_last_pid ) 2>/dev/null || while [ $(cat /proc/sys/kernel/ns_last_pid) -lt 128 ]; do :; done;
@@ -20,16 +20,21 @@ sleep 10
 # request a checkpoint
 echo Taking a snapshot of the application using CRaC...
 mkdir /opt/logs/
-jcmd ${SRVC_JAR_FILE_NAME} JDK.checkpoint >> /opt/logs/snapshot.log
-
 # Waiting till the checkpoint is captured correctly
-while true
-do 
-    echo Waiting till the checkpoint is captured correctly...
-    if ([ -f /opt/crac-files/dump4.log ]) && (grep -Fq "Dumping finished successfully" "/opt/crac-files/dump4.log")
-    then
-	    echo Checkpoint captured!
-	    break
-    fi
-    sleep 5
+i=0
+
+while [[ $i -lt 10 ]]
+do
+  echo Waiting till the checkpoint is captured correctly...
+  jcmd ${SRVC_JAR_FILE_NAME} JDK.checkpoint >> /opt/logs/snapshot.log
+  if ([ -f /opt/crac-files/dump4.log ]) && (grep -Fq "Dumping finished successfully" "/opt/crac-files/dump4.log")
+  then
+    echo Checkpoint captured!
+    exit 0
+    break
+  fi
+  sleep 10
+  ((i++))
 done
+
+exit 1;
