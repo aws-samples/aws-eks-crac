@@ -5,18 +5,21 @@ COPY src ./src/
 
 ENV MAVEN_OPTS='-Xmx6g'
 
-RUN apt-get update --fix-missing \
-    && apt-get install zip curl -y \
-    && curl -s "https://get.sdkman.io" | bash \
+# > /dev/null 2>&1 used for sdkman because sdkmans uses stderr for progress bar. 
+# Neither is a best practice, this is done to reduce the log lines produced.
+RUN apt-get --fix-missing -qq update \
+    && apt-get -qq -y install zip curl > /dev/null \
+    && curl -s "https://get.sdkman.io" | bash > /dev/null 2>&1 \
     && bash -c "source $HOME/.sdkman/bin/sdkman-init.sh; \
-    sdk install maven; mvn -Dmaven.test.skip=true clean package"
+       sdk install maven > /dev/null 2>&1; \
+       mvn --no-transfer-progress -Dmaven.test.skip=true clean package"
 
 FROM azul/zulu-openjdk:17-jdk-crac
 
-RUN apt-get update --fix-missing \
-    && apt-get install zip curl -y \
+RUN apt-get --fix-missing -qq update \
+    && apt-get -qq -y install zip curl > /dev/null \
     && curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
-    && unzip awscliv2.zip \
+    && unzip -qq awscliv2.zip \
     && ./aws/install \
     && chown root:root $JAVA_HOME/lib/criu \
     && chmod 777 $JAVA_HOME/lib/criu
