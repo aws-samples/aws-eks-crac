@@ -185,24 +185,23 @@ cd ~/environment
 git clone https://git-codecommit.${AWS_REGION}.amazonaws.com/v1/repos/${SRVC_NAME}
 ```
 
-Copy the source code and CRaC scripts
+Create the branch `main`, and copy the source code and CRaC scripts
 ```
-cd ~/environment
-cp -r aws-eks-crac/examples/${SRVC_NAME}/code/* ${SRVC_NAME}/
-cp aws-eks-crac/framework/template/codebuild/buildspec.yml ${SRVC_NAME}/
-cp -r aws-eks-crac/framework/template/dockerfiles ${SRVC_NAME}
-cp -r aws-eks-crac/framework/template/scripts ${SRVC_NAME}
+cd ~/environment/${SRVC_NAME}
+git checkout -b main
+cp -r ../aws-eks-crac/examples/${SRVC_NAME}/code/* .
+cp ../aws-eks-crac/framework/template/codebuild/buildspec.yml .
+cp -r ../aws-eks-crac/framework/template/dockerfiles .
+cp -r ../aws-eks-crac/framework/template/scripts .
 ```
 
 Commit the changes
-
-**NOTE:** You may need to click release change button in CodePipeline through the console for the first commit to be picked up by CodePipeline
 
 ```
 cd ~/environment/${SRVC_NAME}
 git add .
 git commit -m "initial version"
-git push
+git push --set-upstream origin main
 ```
 
 7.  Observe CodePipeline progress through the console
@@ -265,13 +264,13 @@ curl http://${APP_CRAC_S3_HOSTNAME}/api/customers
 ```
 
 
-11. Calculate the startup time for various deployments by checking the pod logs
+11. Calculate the startup time for various deployments by checking timestamps in the pod logs.
 
 ```
-kubectl logs -l app=spring-boot-ddb
-kubectl logs -l app=spring-boot-ddb-crac
-kubectl logs -l app=spring-boot-ddb-crac-efs-mount
-kubectl logs -l app=spring-boot-ddb-crac-s3-cli
+kubectl logs --tail 100 -l app=spring-boot-ddb
+kubectl logs --tail 100 -l app=spring-boot-ddb-crac
+kubectl logs --tail 100 -l app=spring-boot-ddb-crac-efs-mount
+kubectl logs --tail 100 -l app=spring-boot-ddb-crac-s3-cli
 ```
 ## Results
 
