@@ -15,8 +15,6 @@
 
 package com.amazon.customerService;
 
-import com.amazon.customerService.utils.TimingUtils;
-
 import java.time.Instant;
 
 import org.springframework.boot.SpringApplication;
@@ -27,7 +25,6 @@ public class CustomerServiceApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(CustomerServiceApplication.class, args);
-        //TimingUtils.measureTime(Instant.now());
     }
 
 

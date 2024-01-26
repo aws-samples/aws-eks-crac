@@ -1,9 +1,4 @@
-FROM public.ecr.aws/lts/ubuntu:22.04 AS builder
-
-ENV JAVA_HOME /opt/jdk
-ENV PATH $JAVA_HOME/bin:$PATH
-
-ADD "https://github.com/CRaC/openjdk-builds/releases/download/17-crac%2B6/openjdk-17-crac+6_linux-x64.tar.gz" $JAVA_HOME/openjdk.tar.gz
+FROM azul/zulu-openjdk:17-jdk-crac as builder
 
 COPY ./pom.xml ./pom.xml
 COPY src ./src/
@@ -14,30 +9,21 @@ ENV MAVEN_OPTS='-Xmx6g'
 # Neither is a best practice, this is done to reduce the log lines produced.
 RUN apt-get --fix-missing -qq update \
     && apt-get -qq -y install zip curl > /dev/null \
-    && tar --extract --file $JAVA_HOME/openjdk.tar.gz --directory "$JAVA_HOME" --strip-components 1  \
-    && rm $JAVA_HOME/openjdk.tar.gz  \
     && curl -s "https://get.sdkman.io" | bash > /dev/null 2>&1 \
     && bash -c "source $HOME/.sdkman/bin/sdkman-init.sh; \
        sdk install maven > /dev/null 2>&1; \
        mvn --no-transfer-progress -Dmaven.test.skip=true clean package"
 
-FROM public.ecr.aws/lts/ubuntu:22.04
-
-ENV JAVA_HOME /opt/jdk
-ENV PATH $JAVA_HOME/bin:$PATH
-
-ADD "https://github.com/CRaC/openjdk-builds/releases/download/17-crac%2B6/openjdk-17-crac+6_linux-x64.tar.gz" $JAVA_HOME/openjdk.tar.gz
+FROM azul/zulu-openjdk:17-jdk-crac
 
 RUN apt-get --fix-missing -qq update \
     && apt-get -qq -y install zip curl > /dev/null \
     && curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
-    && tar --extract --file $JAVA_HOME/openjdk.tar.gz --directory "$JAVA_HOME" --strip-components 1  \
-    && rm $JAVA_HOME/openjdk.tar.gz  \
-    && chown root:root $JAVA_HOME/lib/criu \
-    && chmod 777 $JAVA_HOME/lib/criu \
     && unzip -qq awscliv2.zip \
     && ./aws/install \
     && chown root:root $JAVA_HOME/lib/criu \
-    && chmod 777 $JAVA_HOME/lib/criu
+    && chmod 777 $JAVA_HOME/lib/criu \
+    && rm -f awscliv2.zip \
+    && rm -rf /var/lib/apt/lists/*
 COPY scripts/* /opt/scripts/
 COPY --from=builder target/${SRVC_JAR_FILE_NAME} ${SRVC_JAR_FILE_NAME}
