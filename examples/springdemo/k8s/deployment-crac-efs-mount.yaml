@@ -19,7 +19,7 @@ spec:
             claimName: efs-claim
       containers:
       - name: spring-boot-ddb-crac-efs-mount
-        image: $SRVC_IMAGE_WO_CRAC
+        image: $SRVC_IMAGE_NOCRAC
         imagePullPolicy: Always
         volumeMounts:
           - name: persistent-storage

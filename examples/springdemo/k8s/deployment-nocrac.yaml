@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-boot-ddb
+  name: spring-boot-ddb-nocrac
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spring-boot-ddb
+      app: spring-boot-ddb-nocrac
   template:
     metadata:
       labels:
-        app: spring-boot-ddb
+        app: spring-boot-ddb-nocrac
     spec:
       serviceAccountName: spring-boot-ddb
       containers:
-      - name: spring-boot-ddb
-        image: $SRVC_IMAGE_WO_CRAC
+      - name: spring-boot-ddb-nocrac
+        image: $SRVC_IMAGE_NOCRAC
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -47,7 +47,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: spring-boot-ddb-service
+  name: spring-boot-ddb-nocrac-service
 spec:
   ports:
     - port: 8080
@@ -55,12 +55,12 @@ spec:
       protocol: TCP
   type: NodePort
   selector:
-    app: spring-boot-ddb
+    app: spring-boot-ddb-nocrac
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spring-boot-ddb-ingress
+  name: spring-boot-ddb-nocrac-ingress
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -73,6 +73,6 @@ spec:
           pathType: Prefix
           backend:
             service:
-              name: spring-boot-ddb-service
+              name: spring-boot-ddb-nocrac-service
               port:
                 number: 8080

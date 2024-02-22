@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as efs from 'aws-cdk-lib/aws-efs'
 import * as s3 from 'aws-cdk-lib/aws-s3'
@@ -50,6 +50,7 @@ export class BaseStack extends Stack {
       vpc: this.vpc,
       securityGroup: this.efsSg,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      removalPolicy: RemovalPolicy.DESTROY,
       lifecyclePolicy: efs.LifecyclePolicy.AFTER_14_DAYS, // files are not transitioned to infrequent access (IA) storage by default
       performanceMode: efs.PerformanceMode.GENERAL_PURPOSE, // default
       outOfInfrequentAccessPolicy: efs.OutOfInfrequentAccessPolicy.AFTER_1_ACCESS, // files are not transitioned back from (infrequent access) IA to primary storage by default
@@ -79,7 +80,10 @@ export class BaseStack extends Stack {
     const accessLogsS3 = new s3.Bucket(this, 'access-logs-s3bucket', {
       bucketName: 'crac-accesslogs-' + process.env.CDK_DEFAULT_ACCOUNT,
       enforceSSL: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true
+
     });
     
     //create S3 bucket for checkpoint files
@@ -87,7 +91,9 @@ export class BaseStack extends Stack {
       bucketName: 'crac-checkpoints-' + process.env.CDK_DEFAULT_ACCOUNT,
       serverAccessLogsBucket: accessLogsS3,
       enforceSSL: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true
     });
     new CfnOutput(this, 'CracCheckpointsS3', {value: this.cracCheckpointsS3.bucketName});
     
@@ -96,7 +102,9 @@ export class BaseStack extends Stack {
       bucketName: 'crac-cf-' + process.env.CDK_DEFAULT_ACCOUNT,
       serverAccessLogsBucket: accessLogsS3,
       enforceSSL: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true
     });
     new CfnOutput(this, 'CracCfS3', {value: cracCfS3.bucketName});
   }
