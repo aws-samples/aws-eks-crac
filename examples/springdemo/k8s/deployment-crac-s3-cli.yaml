@@ -15,7 +15,7 @@ spec:
       serviceAccountName: spring-boot-ddb
       containers:
       - name: spring-boot-ddb-crac-s3-cli
-        image: $SRVC_IMAGE_WO_CRAC
+        image: $SRVC_IMAGE_NOCRAC
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
