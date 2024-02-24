@@ -85,9 +85,6 @@ export WORK_DIR=~/environment
 echo "export WORK_DIR=${WORK_DIR}" | tee -a ~/.bash_profile
 ```
 2. Clone the sample implementation repo
-
-**NOTE:** As the repo is not public yet, you need to reach out to the owner (mahgisla@), and get your github account granted access to be able to clone the repo. You will be prompted to enter GitHub credentials when you attempt to clone.
-
 ```
 git clone https://github.com/aws-samples/aws-eks-crac.git
 ```
