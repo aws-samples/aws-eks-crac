@@ -314,7 +314,7 @@ aws cloudformation delete-stack --stack-name "$SRVC_NAME"
 4. Delete Karpenter provisioner and allow sufficient time for de-provisioning any nodes that may have been provisioned by Karpenter
 ```
 cd "${WORK_DIR}/aws-eks-crac/base"
-kubectl apply -f post-cluster/karpenter-provisioner.yaml
+kubectl delete -f post-cluster/karpenter-provisioner.yaml
 ```
 
 5. Delete the base setup of the solution created via CDK
