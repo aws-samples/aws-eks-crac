@@ -77,7 +77,7 @@ Please note that AWS Fargate is not supported as it only supports adding the `SY
 TBC
 
 ## Implementation steps
-**NOTE:** The steps below have been tested on Cloud9 (Amazon Linux 2); some tweaks might be required if you use another environment.
+**NOTE:** The steps below have been tested on Cloud9 (Amazon Linux 2); some tweaks might be required if you use another environment. If you are using Cloud9, make sure to disable AWS managed temporary credentials and attach an IAM role with sufficient permissions.
 
 1. Set working directory environment variable. If you are not using Cloud9, make sure to change the path below to match an existing path in your system
 ```
@@ -121,6 +121,9 @@ Please check these links for more details about EKS Blueprints
 * https://github.com/aws-samples/cdk-eks-blueprints-patterns
 
 4. Set the environment variables that will be used in the subsequent steps:
+
+**NOTE:** The value used for setting AWS_REGION is extracted from IMDSv1. If you are not running on Cloud9/EC2 instance, replace the curl command with the name of the AWS region you use e.g. `eu-west-1`.
+
 ```
 export AWS_REGION="$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/\(.*\)[a-z]/\1/')"
 export ACCOUNT_ID="$(aws sts get-caller-identity --output text --query Account)"
@@ -194,7 +197,7 @@ Create the branch `main`, and copy the source code and CRaC scripts
 ```
 cd "${WORK_DIR}/${SRVC_NAME}"
 git checkout -b main
-cp -r "../aws-eks-crac/examples/${SRVC_NAME}/code/*" .
+cp -r ../aws-eks-crac/examples/"${SRVC_NAME}"/code/* .
 cp ../aws-eks-crac/framework/template/codebuild/buildspec.yml .
 cp -r ../aws-eks-crac/framework/template/dockerfiles .
 cp -r ../aws-eks-crac/framework/template/scripts .
@@ -252,9 +255,9 @@ sed -i "s|$SRVC_NAME/$OLD_SRVC_VERSION|$SRVC_NAME/$SRVC_VERSION|" aws-eks-crac/e
 kubectl apply -f aws-eks-crac/examples/springdemo/k8s
 ```
 
-11. Test the various deployments of the application
+11. Wait till the ALBs are in `Active` state, then test the various deployments of the application using the snippet below:
 ```
-export APP_HOSTNAME=$(kubectl get ingress spring-boot-ddb-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export APP_HOSTNAME=$(kubectl get ingress spring-boot-ddb-nocrac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 curl -d '{"name":"islam", "email":"islam@mahgoub.com", "accountNumber": "1234567"}' -H "Content-Type: application/json" -X POST http://${APP_HOSTNAME}/api/customers
 curl "http://${APP_HOSTNAME}/api/customers"
 
@@ -272,7 +275,7 @@ curl "http://${APP_CRAC_S3_HOSTNAME}/api/customers"
 12. Calculate the startup time for various deployments by checking timestamps in the pod logs.
 
 ```
-kubectl logs --tail 100 -l app=spring-boot-ddb
+kubectl logs --tail 100 -l app=spring-boot-ddb-nocrac
 kubectl logs --tail 100 -l app=spring-boot-ddb-crac
 kubectl logs --tail 100 -l app=spring-boot-ddb-crac-efs-mount
 kubectl logs --tail 100 -l app=spring-boot-ddb-crac-s3-cli
