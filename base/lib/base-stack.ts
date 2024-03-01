@@ -86,26 +86,5 @@ export class BaseStack extends Stack {
 
     });
     
-    //create S3 bucket for checkpoint files
-    this.cracCheckpointsS3 = new s3.Bucket(this, 'crac-checkpoints-s3bucket', {
-      bucketName: 'crac-checkpoints-' + process.env.CDK_DEFAULT_ACCOUNT,
-      serverAccessLogsBucket: accessLogsS3,
-      enforceSSL: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true
-    });
-    new CfnOutput(this, 'CracCheckpointsS3', {value: this.cracCheckpointsS3.bucketName});
-    
-    //create S3 bucket for CI cloudformation templates
-    const cracCfS3 = new s3.Bucket(this, 'crac-cf-s3bucket', {
-      bucketName: 'crac-cf-' + process.env.CDK_DEFAULT_ACCOUNT,
-      serverAccessLogsBucket: accessLogsS3,
-      enforceSSL: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true
-    });
-    new CfnOutput(this, 'CracCfS3', {value: cracCfS3.bucketName});
   }
 }

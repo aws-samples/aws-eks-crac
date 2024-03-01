@@ -77,7 +77,22 @@ Please note that AWS Fargate is not supported as it only supports adding the `SY
 TBC
 
 ## Implementation steps
-**NOTE:** The steps below have been tested on Cloud9 (Amazon Linux 2); some tweaks might be required if you use another environment. If you are using Cloud9, make sure to disable AWS managed temporary credentials and attach an IAM role with sufficient permissions.
+> [!IMPORTANT]
+> The steps below have been tested on Cloud9 (Amazon Linux 2); some tweaks might be required if you use another environment. If you are using Cloud9, make sure to disable AWS managed temporary credentials and attach an IAM role with sufficient permissions.
+
+This guide is built through 3 main flows. 
+1. Create the EKS runtime environment for Java Containers
+2. Create the build environment for Java applications.
+3. Deploying the containers to EKS
+
+### EKS Runtime Environment
+The following steps will create
+- EKS, with Karpenter as a provisioner.
+- EKS Service Account to access a DynamoDB Table
+- VPC with a pair of public and private subnets across each availability zone
+- VPC Flow logs to CloudWatch
+- EFS targets, to demonstrate using EFS to host CRaC file data and relevant security groups
+- S3 buckets for access-logs, CRaC file data and CI files
 
 1. Set working directory environment variable. If you are not using Cloud9, make sure to change the path below to match an existing path in your system
 ```
@@ -91,17 +106,17 @@ git clone https://github.com/aws-samples/aws-eks-crac.git
 
 3. Deploy the base setup of the solution via CDK (includes an EKS cluster, EFS file system and S3 bucket for storing the checkpoint files, and S3 bucket for storing the CI CloudFormation templates)
 
-**NOTE:** The CDK application is configuring the EFS security group to allow inbound connections from any IPv4 address for the time being; this needs to be narrowed down to CI (CodeBuild) and EKS.
+> [!WARNING]
+>  The CDK application is configuring the EFS security group to allow inbound connections from any IPv4 address for the time being; this needs to be narrowed down to CI (CodeBuild) and EKS.
 
 First, CDK must be bootstrapped prior to deploying stacks. Bootstrapping is a process of creating IAM roles and Lambda functions that can execute some of the common CDK constructs. The following must be run once, in the account where the stack is deployed.
 ```
 cd "${WORK_DIR}/aws-eks-crac/base"
 npm install
 cdk bootstrap
-``` 
+```
 
 Once CDK is bootstrapped, the base setup is deployed and updated with the following command:
-
 ```
 cdk deploy --all
 ```
@@ -114,94 +129,102 @@ kubectl apply -f post-cluster/karpenter-provisioner.yaml
 ```
 
 Please check these links for more details about EKS Blueprints
-* https://aws-quickstart.github.io/cdk-eks-blueprints/getting-started/
-* https://github.com/aws-samples/cdk-eks-blueprints-patterns
+- [https://aws-quickstart.github.io/cdk-eks-blueprints/getting-started/](https://aws-quickstart.github.io/cdk-eks-blueprints/getting-started/)
+- [https://github.com/aws-samples/cdk-eks-blueprints-patterns](https://github.com/aws-samples/cdk-eks-blueprints-patterns)
 
-4. Set the environment variables that will be used in the subsequent steps:
-
-**NOTE:** The value used for setting AWS_REGION is extracted from IMDSv1. If you are not running on Cloud9/EC2 instance, replace the curl command with the name of the AWS region you use e.g. `eu-west-1`.
-
+4. Export the environment variables that will be used in the subsequent steps:
 ```
-export AWS_REGION="$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/\(.*\)[a-z]/\1/')"
-export ACCOUNT_ID="$(aws sts get-caller-identity --output text --query Account)"
+./export-environment.sh
+```
+The values exported are names and ID's for resources created by CDK. The script will output the names and values exported, and add them to ``.bash_profile`` for access in new shell environments.
+- AWS_REGION
+- ACCOUNT_ID
+- CLUSTER_NAME
+- VPC_ID
+- CI_SG_ID
+- VPC_PRIVATE_SUBNET_IDS
+- EFS_ID
+
+> [!TIP]
+> The value used for setting AWS_REGION is extracted from IMDSv1. If you are not running on Cloud9/EC2 instance, update the curl command in the script with the name of the AWS region you use e.g. `eu-west-1`.
+
+
+### Java Build Environment
+
+A sample Java application is included in this guide to demonstrate how CRaC can be used in an EKS environment.
+This is a simple Spring Boot application, which exposes a few API's that performs CRUD operations to DynamoDB table. To deploy this application, a CI/CD environment will be setup to store, build code into the appropriate container and create the snapshot. This can be easily adjusted to use an application of your own.
+
+The CI/CD environment can be created with the provided CDK project. It is templated, for repeated use. The resources created are:
+- AWS CodeCommit Repo
+- AWS CodeBuild Project to build in private subnet within a specified VPC
+- AWS CodePipeline Project to build on new commits to main
+- Amazon ECR registry for built containers
+- Amazon S3 buckets for artifacts, access-logs, and CRaC data files
+- Relevant IAM roles, and policies
+
+1. To e simplify the setup, the following environment variables are used to specify the service name and artifact name
+```
+export SRVC_JAR_FILENAME=CustomerService.jar
 export SRVC_NAME=springdemo
-export SRVC_JAR_FILENAME=CustomerService-0.0.1.jar
-export CLUSTER_NAME=eks-crac-cluster-stack
-
-export VPC_ID="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`VpcId`].OutputValue' --output text)"
-export CI_SG_ID="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`CiSgId`].OutputValue' --output text)"
-export VPC_PRIVATE_SUBNET_IDS="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`VpcPrivateSubnetIds`].OutputValue' --output text)"
-export VPC_PRIVATE_SUBNET_IDS_ESC="$(echo $VPC_PRIVATE_SUBNET_IDS | sed 's/\,/\\\,/g')"
-
-export EFS_DNS="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`CracCheckpointsFileSystemDns`].OutputValue' --output text)"
-export EFS_ID="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`CracCheckpointsFileSystemId`].OutputValue' --output text)"
-
-export CRAC_CF_S3="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`CracCfS3`].OutputValue' --output text)"
-export CRAC_CHECKPOINTS_S3="$(aws cloudformation describe-stacks --stack-name BaseStack --query 'Stacks[0].Outputs[?OutputKey==`CracCheckpointsS3`].OutputValue' --output text)"
-
-echo "export ACCOUNT_ID=${ACCOUNT_ID}" | tee -a ~/.bash_profile
-echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
 echo "export SRVC_NAME=${SRVC_NAME}" | tee -a ~/.bash_profile
 echo "export SRVC_JAR_FILENAME=${SRVC_JAR_FILENAME}" | tee -a ~/.bash_profile
-echo "export CLUSTER_NAME=${CLUSTER_NAME}" | tee -a ~/.bash_profile
-echo "export VPC_ID=${VPC_ID}" | tee -a ~/.bash_profile
-echo "export CI_SG_ID=${CI_SG_ID}" | tee -a ~/.bash_profile
-echo "export VPC_PRIVATE_SUBNET_IDS=${VPC_PRIVATE_SUBNET_IDS}" | tee -a ~/.bash_profile
-echo "export VPC_PRIVATE_SUBNET_IDS_ESC=${VPC_PRIVATE_SUBNET_IDS_ESC}" | tee -a ~/.bash_profile
-echo "export EFS_DNS=${EFS_DNS}" | tee -a ~/.bash_profile
-echo "export EFS_ID=${EFS_ID}" | tee -a ~/.bash_profile
-echo "export CRAC_CF_S3=${CRAC_CF_S3}" | tee -a ~/.bash_profile
-echo "export CRAC_CHECKPOINTS_S3=${CRAC_CHECKPOINTS_S3}" | tee -a ~/.bash_profile
 ```
 
-5. Load CI CloudFormation templates to S3
-
+2. Create CI/CD Environment
 ```
-cd "${WORK_DIR}/aws-eks-crac/framework/cmn/cfn"
-aws s3 sync . "s3://${CRAC_CF_S3}"
+cd "${WORK_DIR}/aws-eks-crac/framework/cicd-setup"
+npm install
 
-cd "${WORK_DIR}/aws-eks-crac/examples/springdemo/cfn"
-aws s3 sync . "s3://${CRAC_CF_S3}"
+cdk deploy -c service-name=${SRVC_NAME}  \
+-c subnet-ids=${VPC_PRIVATE_SUBNET_IDS} \
+-c vpc-id=${VPC_ID} \ 
+-c security-group-id=${CI_SG_ID}
+
+export CODE_BUILD_ROLE_ARN=$(aws cloudformation describe-stacks --stack-name ${SRVC_NAME}-ci-stack --query "Stacks[0].Outputs[?OutputKey=='${SRVC_NAME}CodeBuildRoleArn'].OutputValue" --output text)
 ```
+A parameter output from deployment is displayed, this is required to provide CodeBuild the necessary access to any infrastructure required by the demo application.
 
-6. Deploy the cloud resources that the sample service depends on, and the CI pipeline
+3. Once the CDK stack creation is completed (you can check via the console or the CLI), clone the service repo and prepare it — this involves adding the sample service source code and the scripts that facilitate performing and restoring checkpoints using CRaC.
 
-```
-aws cloudformation create-stack --stack-name "${SRVC_NAME}" \
- --template-url  "https://${CRAC_CF_S3}.s3.${AWS_REGION}.amazonaws.com/${SRVC_NAME}-main.yaml" \
- --parameters \
- ParameterKey=ServiceName,ParameterValue="${SRVC_NAME}" \
- ParameterKey=CfnS3Bucket,ParameterValue="${CRAC_CF_S3}" \
- ParameterKey=ServiceJarFilename,ParameterValue="${SRVC_JAR_FILENAME}" \
- ParameterKey=CracCheckpointsBucket,ParameterValue="${CRAC_CHECKPOINTS_S3}" \
- ParameterKey=VpcId,ParameterValue="${VPC_ID}" \
- ParameterKey=VpcSubnetIds,ParameterValue="${VPC_PRIVATE_SUBNET_IDS_ESC}" \
- ParameterKey=SecurityGroupIds,ParameterValue="${CI_SG_ID}" \
- ParameterKey=EfsDns,ParameterValue="${EFS_DNS}" \
- --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
-```
-
-7. Once the CloudFormation stack creation is completed (you can check via the console or the CLI), clone the service repo and prepare it — this involves adding the service source code and the scripts that facilitate performing and restoring checkpoints using CRaC).
-
-**NOTE:** You may need to [install git-remote-codecommit](https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-git-remote-codecommit.html) for connecting to CodeCommit repo using IAM credentials. If you are using Cloud9, it is already installed for you.
+> [!NOTE]
+>  You may need to [install git-remote-codecommit](https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-git-remote-codecommit.html) for connecting to CodeCommit repo using IAM credentials. If you are using Cloud9, it is already installed for you.
 
 ```
 cd "${WORK_DIR}"
 git clone "https://git-codecommit.${AWS_REGION}.amazonaws.com/v1/repos/${SRVC_NAME}"
+
+# When using git-remote-codecommit
+# git clone codecommit::${AWS_DEFAULT_REGION}://${SRVC_NAME}
 ```
 
-Create the branch `main`, and copy the source code and CRaC scripts
+Create the branch `main`, and copy the source code and CRaC scripts
+
 ```
 cd "${WORK_DIR}/${SRVC_NAME}"
 git checkout -b main
 cp -r ../aws-eks-crac/examples/"${SRVC_NAME}"/code/* .
-cp ../aws-eks-crac/framework/template/codebuild/buildspec.yml .
+cp -r ../aws-eks-crac/examples/"${SRVC_NAME}"/cdk .
+cp -r ../aws-eks-crac/examples/"${SRVC_NAME}"/k8s .
+cp ../aws-eks-crac/framework/template/codebuild/* .
 cp -r ../aws-eks-crac/framework/template/dockerfiles .
 cp -r ../aws-eks-crac/framework/template/scripts .
+
 ```
 
-Commit the changes
-
+4. Create the infrastructure required by the service. This CDK project creates a DynamoDB table, and the necessary access to the table from CodeBuild. The role ARN is obtained from output of the CICD Setup deployment.
+```
+cd cdk
+npm install
+cdk deploy -c code-build-role-arn=${CODE_BUILD_ROLE_ARN}
+cd ..
+```
+ 
+5. The buildspec.yml requires updates with values for the ROLE_ARN that docker can use to access AWS Services, and the Java artifact filename (jar file) of the service. A convenience script is provided to update the file.
+```
+./update-buildspec.sh
+```
+ 
+6. Commit the changes
 ```
 cd "${WORK_DIR}/${SRVC_NAME}"
 git add .
@@ -209,53 +232,40 @@ git commit -m "initial version"
 git push --set-upstream origin main
 ```
 
-8.  Observe CodePipeline progress through the console
+7. Observe CodePipeline progress through the console
+Once CodePipeline is completed, check the container images produced in the ECR repo springdemo; you should find two container images: `v1` and `v1-checkpoint` (contains CRaC checkpoint files). The containers are ready for deployment.
 
-**NOTE:** It may happen that the CodeBuild stage fails because of 503 HTTP error that is occasionally returned from https://get.sdkman.io (resources are downloaded from this URL as part of the container image build); if this error occurred to you, retry the CodeBuild stage through the console.
+> [!NOTE]
+>  It may happen that the CodeBuild stage fails because of 503 HTTP error that is occasionally returned from [https://get.sdkman.io](https://get.sdkman.io/) (resources are downloaded from this URL as part of the container image build); if this error occurred to you, retry the CodeBuild stage through the console.
 
-9. Once CodePipeline is completed, check the container images produced in the ECR repo springdemo; you should find two container images: `v1` and `v1-checkpoint` (contains CRaC checkpoint files).
 
-10. Apply K8s manifests for deploying the sample application into the cluster
-
-**NOTE:** The mainfests covers 4 deployments:
+## Deploying the containers to EKS
+The K8s mainfests covers 4 deployments:
 - `spring-boot-ddb-crac-efs-mount`: checkpoint files are retrieved from EFS
 - `spring-boot-ddb-crac-s3-cli`: checkpoint files are retrieved from S3
 - `spring-boot-ddb-crac`: checkpoint files are part of the container image
 - `spring-boot-ddb`: application is started from scratch i.e. checkpoint is not used
 
+1. Befor applying the K8s manifests, the files must updated with the relevant values for the container location, region and CRaC locations where applicable.
 ```
-cd "${WORK_DIR}"
-
-export SRVC_IMAGE_NOCRAC="$(aws ecr describe-repositories --repository-name ${SRVC_NAME} --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')" # the order of build commands means the second last image is always the base
-export SRVC_IMAGE="$(aws ecr describe-repositories --repository-name ${SRVC_NAME} --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]')" # the order of build commands means the latest image is always the checkpoint
-export SRVC_VERSION="$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')"
-
-sed -i "s|\$SRVC_IMAGE_NOCRAC|$SRVC_IMAGE_NOCRAC|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_IMAGE|$SRVC_IMAGE|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$REGION|$AWS_REGION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$EFS_ID|$EFS_ID|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_JAR_FILENAME|$SRVC_JAR_FILENAME|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_NAME|$SRVC_NAME|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_VERSION|$SRVC_VERSION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$CRAC_CHECKPOINTS_S3|$CRAC_CHECKPOINTS_S3|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-
-kubectl apply -f aws-eks-crac/examples/springdemo/k8s
+cd "${WORK_DIR}/${SRVC_NAME}"
+./k8s/manifests-update.sh
 ```
-
-If you made a change, and a new version of the container image is published through the CI pipeline, run the following commands to update the K8s manifests and apply to the cluster:
+2. Apply K8s manifests for deploying the sample application into the cluster
 ```
-export OLD_SRVC_VERSION="$SRVC_VERSION"
-export SRVC_VERSION="$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')"
-
-sed -i "s|$SRVC_NAME:$OLD_SRVC_VERSION|$SRVC_NAME:$SRVC_VERSION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|$SRVC_NAME/$OLD_SRVC_VERSION|$SRVC_NAME/$SRVC_VERSION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-kubectl apply -f aws-eks-crac/examples/springdemo/k8s
+kubectl apply -f ./k8s
 ```
+> [!TIP]
+> If you made a change, and a new version of the container image is published through the CI pipeline, run the following from ``${WORK_DIR}/${SRVC_NAME}`` to update the K8s manifests and apply to the cluster:
+> ```
+> ./k8s/service-version-update.sh
+> kubectl apply -f ./k8s
+> ```
 
-11. Wait till the ALBs are in `Active` state, then test the various deployments of the application using the snippet below:
+3. Wait till the ALBs are in `Active` state, then test the various deployments of the application using the snippet below:
 ```
 export APP_HOSTNAME=$(kubectl get ingress spring-boot-ddb-nocrac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-curl -d '{"name":"islam", "email":"islam@mahgoub.com", "accountNumber": "1234567"}' -H "Content-Type: application/json" -X POST http://${APP_HOSTNAME}/api/customers
+curl -d '{"name":"tony", "email":"start@avengers.com", "accountNumber": "1234567"}' -H "Content-Type: application/json" -X POST http://${APP_HOSTNAME}/api/customers
 curl "http://${APP_HOSTNAME}/api/customers"
 
 export APP_CRAC_HOSTNAME=$(kubectl get ingress spring-boot-ddb-crac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
@@ -269,7 +279,7 @@ curl "http://${APP_CRAC_S3_HOSTNAME}/api/customers"
 ```
 
 
-12. Calculate the startup time for various deployments by checking timestamps in the pod logs.
+4. Calculate the startup time for various deployments by checking timestamps in the pod logs.
 
 ```
 kubectl logs --tail 100 -l app=spring-boot-ddb-nocrac
@@ -277,7 +287,7 @@ kubectl logs --tail 100 -l app=spring-boot-ddb-crac
 kubectl logs --tail 100 -l app=spring-boot-ddb-crac-efs-mount
 kubectl logs --tail 100 -l app=spring-boot-ddb-crac-s3-cli
 ```
-## Results
+### Results
 
 Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
 --- | --- | --- | --- |--- |--- 

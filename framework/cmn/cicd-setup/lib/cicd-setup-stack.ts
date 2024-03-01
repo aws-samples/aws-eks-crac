@@ -16,9 +16,6 @@ export class CicdSetupStack extends cdk.Stack {
     // get service name for this cicd setup
     const serviceName = this.node.tryGetContext('service-name');
 
-    // get service artifact name 
-    const artifactName = this.node.tryGetContext('artifact-name');
-
     // get vpc ids, used to configure build image  
     const vpcId = this.node.tryGetContext('vpc-id');
 
@@ -203,15 +200,6 @@ export class CicdSetupStack extends cdk.Stack {
             type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
             value: cracCheckpointsS3.bucketName
           },
-          // can this be removed, somehow configured through the app...
-          // ROLE_ARN : {
-          //   type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-          //   value: props?.env?.account
-          // },
-          // SRVC_JAR_FILE_NAME: {
-          //   type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-          //   value: artifactName
-          // },
         },
       }
     });

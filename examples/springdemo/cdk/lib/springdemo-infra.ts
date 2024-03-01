@@ -2,7 +2,6 @@ import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class SpringDemoInfra extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
