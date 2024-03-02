@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: $SRVC_NAME-config
+data:
+  AMAZON_DYNAMO_DB_ENDPOINT: "https://dynamodb.$AWS_REGION.amazonaws.com"
+  TABLE_NAME: "$SRVC_NAME-prod-customer"
+  MODE: "prod"
