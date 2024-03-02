@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $SRVC_NAME-crac-s3-cli
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: $SRVC_NAME-crac-s3-cli
+  template:
+    metadata:
+      labels:
+        app: $SRVC_NAME-crac-s3-cli
+    spec:
+      serviceAccountName: $SRVC_NAME
+      containers:
+      - name: $SRVC_NAME-crac-s3-cli
+        image: $SRVC_IMAGE_NOCRAC
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+              - CHECKPOINT_RESTORE
+              - SYS_PTRACE
+          privileged: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+        command: ["/bin/bash"]
+        args: ["/opt/scripts/run-service-crac-s3.sh"]
+        envFrom:
+        - configMapRef:
+            name: $SRVC_NAME-config
+        env:
+        - name: CRAC_CHECKPOINT_PATH
+          value: /opt/crac-files
+        - name: CRAC_CHECKPOINT_S3
+          value: $CRAC_CHECKPOINTS_S3/$SRVC_NAME/$SRVC_VERSION
+        - name: SRVC_JAR_FILE_NAME
+          value: $SRVC_JAR_FILENAME
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          failureThreshold: 60
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: $SRVC_NAME-crac-s3-cli-service
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+  type: NodePort
+  selector:
+    app: $SRVC_NAME-crac-s3-cli
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: $SRVC_NAME-crac-s3-cli-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: $SRVC_NAME-crac-s3-cli-service
+              port:
+                number: 8080

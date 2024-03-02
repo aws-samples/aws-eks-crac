@@ -26,9 +26,6 @@ import java.util.UUID;
 
 import javax.annotation.PostConstruct;
 
-import org.crac.Context;
-import org.crac.Core;
-import org.crac.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Repository;
@@ -48,7 +45,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
 @Slf4j
 @Repository
-public class CustomerRepository implements Resource {
+public class CustomerRepository {
 
     public static final String ID_COLUMN = "Id";
     public static final String NAME_COLUMN = "Name";
@@ -68,20 +65,6 @@ public class CustomerRepository implements Resource {
     public void init() {
     	loadConfig();
     	this.client = createDynamoDbClient();
-        Core.getGlobalContext().register(this);
-    }
-
-    @Override
-    public void beforeCheckpoint(Context<? extends Resource> context) {
-        log.info("Executing beforeCheckpoint...");
-        this.client.close();
-    }
-
-    @Override
-    public void afterRestore(Context<? extends Resource> context) {
-        log.info("Executing afterRestore ...");
-        loadConfig();
-        this.client = createDynamoDbClient();
     }
 
     public Customer save(final Customer customer) {

@@ -45,24 +45,43 @@ const blueprint = blueprints.EksBlueprint.builder()
   .addOns(...addOns)
   .name(clusterName)
   .build(app, clusterName + '-stack');
-
-const springBootDdbServiceAccountName = 'spring-boot-ddb';
-const springBootDdbServiceAccount = blueprint.getClusterInfo().cluster.addServiceAccount(springBootDdbServiceAccountName, {
-  name: springBootDdbServiceAccountName,
+  
+const springdemoServiceAccountName = 'springdemo';
+const springdemoServiceAccount = blueprint.getClusterInfo().cluster.addServiceAccount(springdemoServiceAccountName, {
+  name: springdemoServiceAccountName,
   namespace: "default"
 });
-springBootDdbServiceAccount.role.addToPrincipalPolicy(new iam.PolicyStatement(
+springdemoServiceAccount.role.addToPrincipalPolicy(new iam.PolicyStatement(
     {
       actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
-      resources: ['arn:aws:dynamodb:' + process.env.CDK_DEFAULT_REGION + ':' + process.env.CDK_DEFAULT_ACCOUNT + ':table/Customer'],
+      resources: ['arn:aws:dynamodb:' + process.env.CDK_DEFAULT_REGION + ':' + process.env.CDK_DEFAULT_ACCOUNT + ':table/springdemo-prod-customer'],
     }
   ));
-springBootDdbServiceAccount.role.addToPrincipalPolicy(new iam.PolicyStatement(
+springdemoServiceAccount.role.addToPrincipalPolicy(new iam.PolicyStatement(
     {
       actions: ['s3:GetBucketLocation', 's3:GetObject', 's3:ListBucket'],
       resources: [baseStack.cracCheckpointsS3.bucketArn, baseStack.cracCheckpointsS3.bucketArn + '/*'],
     }
   ));
+  
+const springdemoNativeIntServiceAccountName = 'springdemo-native-int';
+const springdemoNativeIntServiceAccount = blueprint.getClusterInfo().cluster.addServiceAccount(springdemoNativeIntServiceAccountName, {
+  name: springdemoNativeIntServiceAccountName,
+  namespace: "default"
+});
+springdemoNativeIntServiceAccount.role.addToPrincipalPolicy(new iam.PolicyStatement(
+    {
+      actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
+      resources: ['arn:aws:dynamodb:' + process.env.CDK_DEFAULT_REGION + ':' + process.env.CDK_DEFAULT_ACCOUNT + ':table/springdemo-native-int-prod-customer'],
+    }
+  ));
+springdemoNativeIntServiceAccount.role.addToPrincipalPolicy(new iam.PolicyStatement(
+    {
+      actions: ['s3:GetBucketLocation', 's3:GetObject', 's3:ListBucket'],
+      resources: [baseStack.cracCheckpointsS3.bucketArn, baseStack.cracCheckpointsS3.bucketArn + '/*'],
+    }
+  ));
+
 
 //configure cdk-nag suppressions
 const globalSuppressions = [

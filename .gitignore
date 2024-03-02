@@ -17,6 +17,10 @@ out/
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
+### Eclipse ###
+examples/springdemo/code/.settings
+examples/springdemo/code/bin
+
 ### macOS ###
 # General
 .DS_Store

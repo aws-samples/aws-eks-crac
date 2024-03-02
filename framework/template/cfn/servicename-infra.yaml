@@ -1,9 +1,0 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: Staging infrastructure template
-Parameters:
-  ServiceName:
-    Type: String
-    Description: Enter the service name.
-
-Resources: #Add the cloud resources that the service depend on (e.g. DynamoDB, SQS queue), 
-# and the IAM roles needed to allow access from the service to the created cloud resources

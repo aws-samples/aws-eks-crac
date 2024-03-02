@@ -73,9 +73,6 @@ Please note that `CAP_CHECKPOINT_RESTORE` system capability was introduced in Li
 
 Please note that AWS Fargate is not supported as it only supports adding the `SYS_PTRACE` kernel capability; `CAP_SYS_ADMIN` and `CAP_CHECKPOINT_RESTORE` cannot be added.
 
-### Reduce image pull time
-TBC
-
 ## Implementation steps
 **NOTE:** The steps below have been tested on Cloud9 (Amazon Linux 2); some tweaks might be required if you use another environment. If you are using Cloud9, make sure to disable AWS managed temporary credentials and attach an IAM role with sufficient permissions.
 
@@ -124,7 +121,6 @@ Please check these links for more details about EKS Blueprints
 ```
 export AWS_REGION="$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/\(.*\)[a-z]/\1/')"
 export ACCOUNT_ID="$(aws sts get-caller-identity --output text --query Account)"
-export SRVC_NAME=springdemo
 export SRVC_JAR_FILENAME=CustomerService-0.0.1.jar
 export CLUSTER_NAME=eks-crac-cluster-stack
 
@@ -141,7 +137,6 @@ export CRAC_CHECKPOINTS_S3="$(aws cloudformation describe-stacks --stack-name Ba
 
 echo "export ACCOUNT_ID=${ACCOUNT_ID}" | tee -a ~/.bash_profile
 echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
-echo "export SRVC_NAME=${SRVC_NAME}" | tee -a ~/.bash_profile
 echo "export SRVC_JAR_FILENAME=${SRVC_JAR_FILENAME}" | tee -a ~/.bash_profile
 echo "export CLUSTER_NAME=${CLUSTER_NAME}" | tee -a ~/.bash_profile
 echo "export VPC_ID=${VPC_ID}" | tee -a ~/.bash_profile
@@ -159,16 +154,26 @@ echo "export CRAC_CHECKPOINTS_S3=${CRAC_CHECKPOINTS_S3}" | tee -a ~/.bash_profil
 ```
 cd "${WORK_DIR}/aws-eks-crac/framework/cmn/cfn"
 aws s3 sync . "s3://${CRAC_CF_S3}"
-
-cd "${WORK_DIR}/aws-eks-crac/examples/springdemo/cfn"
-aws s3 sync . "s3://${CRAC_CF_S3}"
 ```
 
-6. Deploy the cloud resources that the sample service depends on, and the CI pipeline
+6. Create the `StorageClass`, `PersistentVolume`, and `PersistentVolumeClaim` for EFS file system that contains the checkpoint files
+```
+cd "${WORK_DIR}"
+envsubst < aws-eks-crac/examples/cmn/k8s/efs-mount.yaml | kubectl apply -f -
+```
+
+7. Set the `SRVC_NAME` environment variable
+```
+export SRVC_NAME=springdemo-native-int
+```
+
+**NOTE:** This repo contains two CRaC implementations for a sample Spring Boot application; one is based on the native integration with CRaC introduced in Spring version 6.1 (and Spring Boot version 3.2), and the other is based the general mechanism that CRaC provides -- if you want to use the former set `SRVC_NAME` to `springdemo-native-int`; if you want to use the latter, set `SRVC_NAME` to `springdemo`.
+
+8. Deploy the cloud resources that the sample service depends on, and the CI pipeline
 
 ```
 aws cloudformation create-stack --stack-name "${SRVC_NAME}" \
- --template-url  "https://${CRAC_CF_S3}.s3.${AWS_REGION}.amazonaws.com/${SRVC_NAME}-main.yaml" \
+ --template-url  "https://${CRAC_CF_S3}.s3.${AWS_REGION}.amazonaws.com/springdemo-main.yaml" \
  --parameters \
  ParameterKey=ServiceName,ParameterValue="${SRVC_NAME}" \
  ParameterKey=CfnS3Bucket,ParameterValue="${CRAC_CF_S3}" \
@@ -181,7 +186,7 @@ aws cloudformation create-stack --stack-name "${SRVC_NAME}" \
  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
 ```
 
-7. Once the CloudFormation stack creation is completed (you can check via the console or the CLI), clone the service repo and prepare it — this involves adding the service source code and the scripts that facilitate performing and restoring checkpoints using CRaC).
+9. Once the CloudFormation stack creation is completed (you can check via the console or the CLI), clone the service repo and prepare it — this involves adding the service source code and the scripts that facilitate performing and restoring checkpoints using CRaC).
 
 **NOTE:** You may need to [install git-remote-codecommit](https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-git-remote-codecommit.html) for connecting to CodeCommit repo using IAM credentials. If you are using Cloud9, it is already installed for you.
 
@@ -195,9 +200,9 @@ Create the branch `main`, and copy the source code and CRaC scripts
 cd "${WORK_DIR}/${SRVC_NAME}"
 git checkout -b main
 cp -r ../aws-eks-crac/examples/"${SRVC_NAME}"/code/* .
-cp ../aws-eks-crac/framework/template/codebuild/buildspec.yml .
-cp -r ../aws-eks-crac/framework/template/dockerfiles .
-cp -r ../aws-eks-crac/framework/template/scripts .
+cp ../aws-eks-crac/examples/cmn/codebuild/buildspec.yml .
+cp -r ../aws-eks-crac/examples/cmn/dockerfiles .
+cp -r ../aws-eks-crac/examples/${SRVC_NAME}/scripts .
 ```
 
 Commit the changes
@@ -209,19 +214,19 @@ git commit -m "initial version"
 git push --set-upstream origin main
 ```
 
-8.  Observe CodePipeline progress through the console
+10.  Observe CodePipeline progress through the console
 
 **NOTE:** It may happen that the CodeBuild stage fails because of 503 HTTP error that is occasionally returned from https://get.sdkman.io (resources are downloaded from this URL as part of the container image build); if this error occurred to you, retry the CodeBuild stage through the console.
 
-9. Once CodePipeline is completed, check the container images produced in the ECR repo springdemo; you should find two container images: `v1` and `v1-checkpoint` (contains CRaC checkpoint files).
+11. Once CodePipeline is completed, check the container images produced in the ECR repo springdemo; you should find two container images: `v1` and `v1-checkpoint` (contains CRaC checkpoint files).
 
-10. Apply K8s manifests for deploying the sample application into the cluster
+12. Apply K8s manifests for deploying the sample application into the cluster
 
 **NOTE:** The mainfests covers 4 deployments:
-- `spring-boot-ddb-crac-efs-mount`: checkpoint files are retrieved from EFS
-- `spring-boot-ddb-crac-s3-cli`: checkpoint files are retrieved from S3
-- `spring-boot-ddb-crac`: checkpoint files are part of the container image
-- `spring-boot-ddb`: application is started from scratch i.e. checkpoint is not used
+- `<SRVC_NAME>-crac-efs-mount`: checkpoint files are retrieved from EFS
+- `<SRVC_NAME>-crac-s3-cli`: checkpoint files are retrieved from S3
+- `<SRVC_NAME>-crac`: checkpoint files are part of the container image
+- `<SRVC_NAME>-nocrac`: application is started from scratch i.e. checkpoint is not used
 
 ```
 cd "${WORK_DIR}"
@@ -230,63 +235,63 @@ export SRVC_IMAGE_NOCRAC="$(aws ecr describe-repositories --repository-name ${SR
 export SRVC_IMAGE="$(aws ecr describe-repositories --repository-name ${SRVC_NAME} --query 'repositories[0].repositoryUri' --output text)":"$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]')" # the order of build commands means the latest image is always the checkpoint
 export SRVC_VERSION="$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')"
 
-sed -i "s|\$SRVC_IMAGE_NOCRAC|$SRVC_IMAGE_NOCRAC|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_IMAGE|$SRVC_IMAGE|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$REGION|$AWS_REGION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$EFS_ID|$EFS_ID|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_JAR_FILENAME|$SRVC_JAR_FILENAME|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_NAME|$SRVC_NAME|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$SRVC_VERSION|$SRVC_VERSION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|\$CRAC_CHECKPOINTS_S3|$CRAC_CHECKPOINTS_S3|" aws-eks-crac/examples/springdemo/k8s/*.yaml
+kubectl kustomize aws-eks-crac/examples/cmn/k8s/springdemo \
+  | envsubst | kubectl apply -f-
 
-kubectl apply -f aws-eks-crac/examples/springdemo/k8s
 ```
 
-If you made a change, and a new version of the container image is published through the CI pipeline, run the following commands to update the K8s manifests and apply to the cluster:
+If you made a change, and a new version of the container image is published through the CI pipeline, run the following command to update the K8s manifests and apply to the cluster:
 ```
-export OLD_SRVC_VERSION="$SRVC_VERSION"
 export SRVC_VERSION="$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')"
 
-sed -i "s|$SRVC_NAME:$OLD_SRVC_VERSION|$SRVC_NAME:$SRVC_VERSION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-sed -i "s|$SRVC_NAME/$OLD_SRVC_VERSION|$SRVC_NAME/$SRVC_VERSION|" aws-eks-crac/examples/springdemo/k8s/*.yaml
-kubectl apply -f aws-eks-crac/examples/springdemo/k8s
+kubectl kustomize aws-eks-crac/examples/cmn/k8s/springdemo \
+  | envsubst | kubectl apply -f-
 ```
 
-11. Wait till the ALBs are in `Active` state, then test the various deployments of the application using the snippet below:
+13. Wait till the ALBs are in `Active` state, then test the various deployments of the application using the snippet below:
 ```
-export APP_HOSTNAME=$(kubectl get ingress spring-boot-ddb-nocrac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export APP_HOSTNAME="$(kubectl get ingress $SRVC_NAME-nocrac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 curl -d '{"name":"islam", "email":"islam@mahgoub.com", "accountNumber": "1234567"}' -H "Content-Type: application/json" -X POST http://${APP_HOSTNAME}/api/customers
 curl "http://${APP_HOSTNAME}/api/customers"
 
-export APP_CRAC_HOSTNAME=$(kubectl get ingress spring-boot-ddb-crac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export APP_CRAC_HOSTNAME="$(kubectl get ingress $SRVC_NAME-crac-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 curl "http://${APP_CRAC_HOSTNAME}/api/customers"
 
-export APP_CRAC_EFS_HOSTNAME=$(kubectl get ingress spring-boot-ddb-crac-efs-mount-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export APP_CRAC_EFS_HOSTNAME="$(kubectl get ingress $SRVC_NAME-crac-efs-mount-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 curl "http://${APP_CRAC_EFS_HOSTNAME}/api/customers"
 
-export APP_CRAC_S3_HOSTNAME=$(kubectl get ingress spring-boot-ddb-crac-s3-cli-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export APP_CRAC_S3_HOSTNAME="$(kubectl get ingress $SRVC_NAME-crac-s3-cli-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 curl "http://${APP_CRAC_S3_HOSTNAME}/api/customers"
 ```
 
 
-12. Calculate the startup time for various deployments by checking timestamps in the pod logs.
+14. Calculate the startup time for various deployments by checking timestamps in the pod logs.
 
 ```
-kubectl logs --tail 100 -l app=spring-boot-ddb-nocrac
-kubectl logs --tail 100 -l app=spring-boot-ddb-crac
-kubectl logs --tail 100 -l app=spring-boot-ddb-crac-efs-mount
-kubectl logs --tail 100 -l app=spring-boot-ddb-crac-s3-cli
+kubectl logs --tail 100 -l app="$SRVC_NAME-nocrac"
+kubectl logs --tail 100 -l app="$SRVC_NAME-crac"
+kubectl logs --tail 100 -l app="$SRVC_NAME-crac-efs-mount"
+kubectl logs --tail 100 -l app="$SRVC_NAME-crac-s3-cli"
 ```
 ## Results
 
+The results for the implementation that is based on Spring Boot native integration with CRaC are as follows:
+
 Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
 --- | --- | --- | --- |--- |--- 
-No CRaC | - | 346 | - | 12 | 12
-CRaC - Container image | 170 | 388 | - | 0.3 | 0.3
-CRaC - EFS | 170 | 346 | - | 2 | 2
-CRaC - S3 CLI | 170 | 530 | 6 | 0.3 | 6.3
-CRaC - S3 CLI (VPC endpoint) |  |  |  |  | 
-CRaC - S3 Express One Zone |  |  |  |  | 
+No CRaC | - | 354.3 | - | 12 | 12
+CRaC - Container image | 184 | 389.91 | - | 0.3 | 0.3
+CRaC - EFS | 184 | 354.3 | - | 2 | 2
+CRaC - S3 CLI | 184 | 467.71 | 6 | 0.3 | 6.3
+
+The results for the implementation that is based on the general approach provided by CRaC are as follows:
+
+Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
+--- | --- | --- | --- |--- |--- 
+No CRaC | - | 349.97 | - | 16.3 | 16.3
+CRaC - Container image | 232 | 397.39 | - | 0.9 | 0.9
+CRaC - EFS | 232 | 349.97 | - | 2.6 | 2.6
+CRaC - S3 CLI | 232 | 463.38 | 6 | 0.9 | 6.9
 
 ## Clean-up
 1. Undeploy the sample service from the EKS cluster
