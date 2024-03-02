@@ -152,7 +152,7 @@ echo "export CRAC_CHECKPOINTS_S3=${CRAC_CHECKPOINTS_S3}" | tee -a ~/.bash_profil
 5. Load CI CloudFormation templates to S3
 
 ```
-cd "${WORK_DIR}/aws-eks-crac/framework/cmn/cfn"
+cd "${WORK_DIR}/aws-eks-crac/examples/cmn/cfn"
 aws s3 sync . "s3://${CRAC_CF_S3}"
 ```
 
@@ -237,16 +237,9 @@ export SRVC_VERSION="$(aws ecr describe-images --output text --repository-name $
 
 kubectl kustomize aws-eks-crac/examples/cmn/k8s/springdemo \
   | envsubst | kubectl apply -f-
-
 ```
 
-If you made a change, and a new version of the container image is published through the CI pipeline, run the following command to update the K8s manifests and apply to the cluster:
-```
-export SRVC_VERSION="$(aws ecr describe-images --output text --repository-name $SRVC_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-2].imageTags[0]')"
-
-kubectl kustomize aws-eks-crac/examples/cmn/k8s/springdemo \
-  | envsubst | kubectl apply -f-
-```
+If you made a change, and a new version of the container image is published through the CI pipeline, re-run the snippet above to update the environment variables and re-apply the manifests to the cluster.
 
 13. Wait till the ALBs are in `Active` state, then test the various deployments of the application using the snippet below:
 ```
@@ -274,30 +267,30 @@ kubectl logs --tail 100 -l app="$SRVC_NAME-crac-efs-mount"
 kubectl logs --tail 100 -l app="$SRVC_NAME-crac-s3-cli"
 ```
 ## Results
+The results for the implementation that is based on the general approach provided by CRaC are as follows:
+Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
+--- | --- | --- | --- |--- |--- 
+No CRaC | - | ... | - | 13 | 13
+CRaC - Container image | 187 | ... | - | 0.3 | 0.3
+CRaC - EFS | 187 | ... | - | 1.9 | 1.9
+CRaC - S3 CLI | 187 | 433.04 | 6.5 | 0.3 | 6.8
 
 The results for the implementation that is based on Spring Boot native integration with CRaC are as follows:
-
 Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
 --- | --- | --- | --- |--- |--- 
-No CRaC | - | 354.3 | - | 12 | 12
-CRaC - Container image | 184 | 389.91 | - | 0.3 | 0.3
-CRaC - EFS | 184 | 354.3 | - | 2 | 2
-CRaC - S3 CLI | 184 | 467.71 | 6 | 0.3 | 6.3
+No CRaC | - | ... | - | 19 | 19
+CRaC - Container image | 173 | ... | - | 2.5 | 2.5
+CRaC - EFS | 173 | ... | - | 4.2 | 4.2
+CRaC - S3 CLI | 173 | 471.90 | 7.5 | 2.5 | 10
 
-The results for the implementation that is based on the general approach provided by CRaC are as follows:
-
-Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
---- | --- | --- | --- |--- |--- 
-No CRaC | - | 349.97 | - | 16.3 | 16.3
-CRaC - Container image | 232 | 397.39 | - | 0.9 | 0.9
-CRaC - EFS | 232 | 349.97 | - | 2.6 | 2.6
-CRaC - S3 CLI | 232 | 463.38 | 6 | 0.9 | 6.9
+**NOTE:** The reduction in start-up time in case of Spring Boot native integration with CRaC is lower compared to the general approach; one of the reasons behind that is the captured checkpoint in case of Spring Boot native integration with CRaC only covers the Spring Boot framework, not the application.
 
 ## Clean-up
 1. Undeploy the sample service from the EKS cluster
 ```
 cd "${WORK_DIR}"
-kubectl delete -f aws-eks-crac/examples/springdemo/k8s/
+kubectl kustomize aws-eks-crac/examples/cmn/k8s/springdemo \
+  | envsubst | kubectl delete -f-
 ```
 
 2. Delete the sample service container images pushed to ECR
@@ -306,20 +299,32 @@ aws ecr batch-delete-image \
     --repository-name "$SRVC_NAME" \
     --image-ids "$(aws ecr list-images --repository-name $SRVC_NAME --query 'imageIds[*]' --output json
 )" || true
-
 ```
+
 3. Delete the cloud resources that the sample service depends on, and the CI pipeline
 ```
 aws cloudformation delete-stack --stack-name "$SRVC_NAME"
 ```
 
-4. Delete Karpenter provisioner and allow sufficient time for de-provisioning any nodes that may have been provisioned by Karpenter
+4. Delete the sample application directory
+```
+cd "${WORK_DIR}"
+rm -r -f "$SRVC_NAME"
+```
+
+5. Delete the `StorageClass`, `PersistentVolume`, and `PersistentVolumeClaim` for EFS file system that contains the checkpoint files
+```
+cd "${WORK_DIR}"
+envsubst < aws-eks-crac/examples/cmn/k8s/efs-mount.yaml | kubectl delete -f -
+```
+
+6. Delete Karpenter provisioner and allow sufficient time for de-provisioning any nodes that may have been provisioned by Karpenter
 ```
 cd "${WORK_DIR}/aws-eks-crac/base"
 kubectl delete -f post-cluster/karpenter-provisioner.yaml
 ```
 
-5. Delete the base setup of the solution created via CDK
+7. Delete the base setup of the solution created via CDK
 ```
 cd "${WORK_DIR}/aws-eks-crac/base"
 cdk destroy --all
