@@ -27,14 +27,6 @@ spec:
         env:
         - name: CRAC_CHECKPOINT_PATH
           value: /opt/crac-files
-        securityContext:
-          capabilities:
-            add:
-              - CHECKPOINT_RESTORE
-              - SYS_PTRACE
-          privileged: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
         command: ["/bin/bash"]
         args: ["/opt/scripts/run-service-crac.sh"]
         readinessProbe:
