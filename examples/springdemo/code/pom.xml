@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.0.1</version>
+		<version>3.4.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.amazon</groupId>
@@ -14,20 +14,20 @@
 	<name>CustomerService</name>
 	<description>Demo application to demonstrate steps for reducing startup time for Spring Boot app using CRaC</description>
 	<properties>
-		<java.version>17</java.version>
-		<tomcat.version>10.1.7</tomcat.version>
-		<aws.sdk.version>2.19.7</aws.sdk.version>
+		<java.version>23</java.version>
+		<aws.sdk.version>2.20.68</aws.sdk.version>
 	</properties>
 	<dependencies>
-		<dependency>
-			<groupId>io.github.crac.org.apache.tomcat.embed</groupId>
-			<artifactId>tomcat-embed-core</artifactId>
-			<version>10.1.7</version>
-		</dependency>
 		<dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>dynamodb</artifactId>
             <version>${aws.sdk.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -53,8 +53,8 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 			<exclusions>
 				<exclusion>
-					<groupId>org.apache.tomcat.embed</groupId>
-					<artifactId>tomcat-embed-core</artifactId>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -85,6 +85,7 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+			<version>1.18.36</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -94,7 +95,7 @@
 		<dependency>
 			<groupId>org.crac</groupId>
 			<artifactId>crac</artifactId>
-			<version>0.1.3</version>
+			<version>1.4.0</version>
 		</dependency>
 		<dependency>
 			<groupId>io.kubernetes</groupId>
@@ -106,11 +107,19 @@
 			<artifactId>client-java-api</artifactId>
 			<version>13.0.0</version>
 		</dependency>
-
 	</dependencies>
 
 	<build>
 		<plugins>
+			<plugin>
+		        <groupId>org.apache.maven.plugins</groupId>
+		        <artifactId>maven-compiler-plugin</artifactId>
+		        <configuration>
+		            <compilerArgs>
+		                <arg>-proc:full</arg>
+		            </compilerArgs>
+		        </configuration>
+		    </plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
