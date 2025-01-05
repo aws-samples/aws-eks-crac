@@ -1,4 +1,4 @@
-FROM azul/zulu-openjdk:17-jdk-crac as builder
+FROM azul/zulu-openjdk:23.0.1-jdk-crac as builder
 
 COPY ./pom.xml ./pom.xml
 COPY src ./src/
@@ -14,7 +14,7 @@ RUN apt-get --fix-missing -qq update \
        sdk install maven > /dev/null 2>&1; \
        mvn --no-transfer-progress -Dmaven.test.skip=true clean package"
 
-FROM azul/zulu-openjdk:17-jdk-crac
+FROM azul/zulu-openjdk:23.0.1-jdk-crac
 
 RUN apt-get --fix-missing -qq update \
     && apt-get -qq -y install zip curl > /dev/null \

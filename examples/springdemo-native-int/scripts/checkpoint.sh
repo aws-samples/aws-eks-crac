@@ -8,7 +8,7 @@ rm -rf /opt/crac-files/*
 echo Starting the application...
 ( echo 128 > /proc/sys/kernel/ns_last_pid ) 2>/dev/null || while [ $(cat /proc/sys/kernel/ns_last_pid) -lt 128 ]; do :; done;
 TABLE_NAME=springdemo-native-int-staging-customer
-java -Dspring.context.checkpoint=onRefresh -Dtable.name=${TABLE_NAME} -Dspring.profiles.active=prod -Dmode=${MODE} -Damazon.dynamodb.endpoint=${AMAZON_DYNAMO_DB_ENDPOINT} -Djdk.crac.collect-fd-stacktraces=true -XX:CRaCCheckpointTo=/opt/crac-files/ -jar /${SRVC_JAR_FILE_NAME}
+java -Dspring.context.checkpoint=onRefresh -Dtable.name=${TABLE_NAME} -Dspring.profiles.active=prod -Dmode=${MODE} -Damazon.dynamodb.endpoint=${AMAZON_DYNAMO_DB_ENDPOINT} -Djdk.crac.collect-fd-stacktraces=true -XX:CRaCEngine=warp -XX:CRaCCheckpointTo=/opt/crac-files/ -jar /${SRVC_JAR_FILE_NAME}
 
 EXIT_CODE=$?
 

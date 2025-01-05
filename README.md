@@ -270,18 +270,18 @@ kubectl logs --tail 100 -l app="$SRVC_NAME-crac-s3-cli"
 The results for the implementation that is based on the general approach provided by CRaC are as follows:
 Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
 --- | --- | --- | --- |--- |--- 
-No CRaC | - | ... | - | 13 | 13
-CRaC - Container image | 187 | ... | - | 0.3 | 0.3
-CRaC - EFS | 187 | ... | - | 1.9 | 1.9
-CRaC - S3 CLI | 187 | 433.04 | 6.5 | 0.3 | 6.8
+No CRaC | - | ... | - | 9.353 | 9.353
+CRaC - Container image | 167.6 | ... | - | 0.344 | 0.344
+CRaC - EFS | 167.6 | ... | - | 1.013 | 1.013
+CRaC - S3 CLI | 167.6 | ... | 2.72 | 0.368 | 3.088
 
 The results for the implementation that is based on Spring Boot native integration with CRaC are as follows:
 Deployment | Checkpoint files size (MB) | Image size on ECR (MB) | Time to download Checkpoint files (Seconds) | Startup time (Seconds) | Total startup time (Seconds) 
 --- | --- | --- | --- |--- |--- 
-No CRaC | - | ... | - | 19 | 19
-CRaC - Container image | 173 | ... | - | 2.5 | 2.5
-CRaC - EFS | 173 | ... | - | 4.2 | 4.2
-CRaC - S3 CLI | 173 | 471.90 | 7.5 | 2.5 | 10
+No CRaC | - | ... | - | 10.696 | 10.696
+CRaC - Container image | 157.9 | ... | - | 0.736 | 0.736
+CRaC - EFS | 157.9 | ... | - | 1.826 | 1.826
+CRaC - S3 CLI | 157.9 | ... | 3.265 | 0.643 | 3.908
 
 **NOTE:** The reduction in start-up time in case of Spring Boot native integration with CRaC is lower compared to the general approach; one of the reasons behind that is the captured checkpoint in case of Spring Boot native integration with CRaC only covers the Spring Boot framework, not the application.
 
